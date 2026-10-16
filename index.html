@@ -536,7 +536,6 @@ function connect(room, me){
   N = {room, me, game:keep, picks:{}, online:{}, client:null, connected:false, base:"ggl/"+room+"/", t0:Date.now(), hearted:""};
   if(typeof mqtt==="undefined"){ N.failed = true; return; }
   const opts = {clientId:"ggl_"+rid(10), clean:true, reconnectPeriod:2000, connectTimeout:10000};
-  if(me!=null) opts.will = {topic:N.base+"online/"+me, payload:JSON.stringify({on:false}), retain:true, qos:0};
   const c = mqtt.connect(BROKER, opts), mine = N;
   N.client = c;
   c.on("connect", ()=>{ if(N!==mine) return; N.connected = true; c.subscribe(N.base+"#", {qos:1});
@@ -605,11 +604,11 @@ function setMe(me){
   const old = N.me;
   if(old!=null && old!==me) pub("online/"+old, {on:false});
   try{ localStorage.setItem(roomKey(N.room), me); }catch(e){}
-  const c = N.client, G = N.game, room = N.room;
-  if(c) setTimeout(()=>c.end(), 300);
-  connect(room, me);
-  if(G && G.host!==undefined && S.screen==="lobby"){ pubGame({...G, host:me}); }
+  N.me = me; pub("online/"+me, {on:true}); // same connection; queued until connected
+  const G = N.game;
+  if(G && S.screen==="lobby"){ pubGame({...G, host:me}); }
 }
+addEventListener("pagehide", ()=>{ if(N && N.me!=null) pub("online/"+N.me, {on:false}); });
 
 function leaveLive(){
   if(N){ if(N.me!=null) pub("online/"+N.me, {on:false}); const c = N.client; if(c) setTimeout(()=>c.end(), 300); }
@@ -648,7 +647,7 @@ function renderLobby(){
 }
 
 function renderJoinWait(){
-  const slow = N && (N.failed || Date.now()-N.t0 > 12000);
+  const slow = N && (N.failed || Date.now()-N.t0 > 20000);
   h(`${header()}<div class="curtain">
     <div class="eyebrow">GG love game</div>
     <div class="big" style="font-size:34px">${slow?"Can't find this game":"Joining<span class=\"typing\"></span>"}</div>
@@ -658,7 +657,7 @@ function renderJoinWait(){
   if(slow){
     document.getElementById("retry").onclick = ()=>location.reload();
     document.getElementById("solo").onclick = leaveLive;
-  } else setTimeout(()=>{ if(S.screen==="joinwait") render(); }, 12500);
+  } else setTimeout(()=>{ if(S.screen==="joinwait") render(); }, 20500);
 }
 
 function renderJoinHello(){
