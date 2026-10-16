@@ -219,7 +219,7 @@ function header(){
   if(S.screen==="play") bar = `<div class="progress" aria-hidden="true"><i style="width:${(S.i/S.deck.length*100).toFixed(1)}%"></i></div>`;
   if(live && S.screen==="live") bar = `<div class="progress" aria-hidden="true"><i style="width:${(N.game.i/N.game.deck.length*100).toFixed(1)}%"></i></div>`;
   let net = "";
-  if(N && N.me!=null && ["lobby","live","liveend"].includes(S.screen)){
+  if(N && N.me!=null && ["lobby","live","liveend","livesetup","livewait"].includes(S.screen)){
     const other = 1-N.me, on = !!N.online[other];
     net = `<div class="net"><span class="ndot ${N.connected?(on?"on":""):"off"}"></span>${!N.connected?"Connecting…":on?`${esc(nameOf(other))} is here`:`Waiting for ${esc(nameOf(other))}`}
       <span style="margin-left:auto">You: <b>${esc(nameOf(N.me))}</b></span></div>`;
@@ -238,6 +238,8 @@ function render(){
   if(S.screen==="joinhello") return renderJoinHello();
   if(S.screen==="live") return renderLive();
   if(S.screen==="liveend") return renderLiveEnd();
+  if(S.screen==="livesetup") return renderSetup();
+  if(S.screen==="livewait") return renderLiveWait();
 }
 
 function renderIntro(){
@@ -263,10 +265,12 @@ function renderSetup(){
     <div><label>Vibes</label><div class="vibes" id="vibes">${Object.entries(VIBES).map(([k,v])=>`<button class="vibe" data-k="${k}" aria-pressed="${S.vibes.includes(k)}">${v}</button>`).join("")}</div></div>
     <div><label>Questions</label><div class="vibes" id="rounds">${[8,12,20,0].map(n=>`<button class="vibe" data-n="${n}" aria-pressed="${S.rounds===n}">${n||"All"}</button>`).join("")}</div></div>
     <div class="small" id="count"></div>
-    <button class="btn" id="start">Play on one phone</button>
+    ${S.screen==="livesetup" ? `<button class="btn" id="start3">Start new game</button>
+    <div class="small" style="text-align:center;margin-top:-6px">Starts on both phones.</div>` : `<button class="btn" id="start">Play on one phone</button>
     <button class="btn alt" id="start2">Play on two phones</button>
-    <div class="small" style="text-align:center;margin-top:-6px">Two phones: each answers on their own phone, both see the reveal live.</div>
+    <div class="small" style="text-align:center;margin-top:-6px">Two phones: each answers on their own phone, both see the reveal live.</div>`}
   </div>
+  ${S.screen==="livesetup" ? `<div class="foot"><button class="linkish" id="back">Back</button></div>` : ""}
   <div class="card ai" id="aibox" hidden>
     <div class="eyebrow">Fresh questions</div>
     <p class="hint">Ask Claude to write 10 brand-new questions in your chosen vibes.</p>
@@ -281,6 +285,16 @@ function renderSetup(){
     document.querySelectorAll("#vibes .vibe").forEach(b=>b.setAttribute("aria-pressed",S.vibes.includes(b.dataset.k))); upd(); };
   document.getElementById("rounds").onclick = e=>{const n=e.target.dataset.n;if(n===undefined)return;S.rounds=+n;
     document.querySelectorAll("#rounds .vibe").forEach(b=>b.setAttribute("aria-pressed",+b.dataset.n===S.rounds));};
+  if(S.screen==="livesetup"){
+    document.getElementById("start3").onclick = ()=>{
+      S.a = document.getElementById("na").value.trim()||"Player 1";
+      S.b = document.getElementById("nb").value.trim()||"Player 2";
+      store.set({a:S.a,b:S.b,vibes:S.vibes,rounds:S.rounds});
+      pubGame(newGame(N.game.host)); window.scrollTo(0,0);
+    };
+    document.getElementById("back").onclick = ()=>pubGame({...N.game, picking:null});
+    return;
+  }
   document.getElementById("start").onclick = start;
   document.getElementById("start2").onclick = hostLive;
   setupAI();
@@ -361,11 +375,10 @@ function renderEnd(){
     <div class="bar"><i style="width:${p}%"></i></div>
     <h2 style="font-size:30px;color:var(--cherry)">${t}</h2>
     <p class="hint" style="font-size:16px">${sub} ${S.matches} of ${n} answers matched.</p>
-    <div class="row" style="width:100%"><button class="btn" id="again">Play again</button><button class="btn ghost" id="setup">Change vibes</button></div>
+    <div class="row" style="width:100%"><button class="btn" id="again">New game</button></div>
   </div>`);
   if(p>=45) hearts(24);
-  document.getElementById("again").onclick=()=>{ start(); };
-  document.getElementById("setup").onclick=()=>{ S.screen="setup"; render(); };
+  document.getElementById("again").onclick=()=>{ S.screen="setup"; render(); window.scrollTo(0,0); };
 }
 
 function hearts(n){
@@ -445,9 +458,26 @@ function onLive(){
   const G = N.game;
   if(S.screen==="joinwait" && G) S.screen = "joinhello";
   if(S.screen==="lobby" && G && N.online[1-N.me]) S.screen = "live";
-  if(S.screen==="live" && G && G.i>=G.deck.length) S.screen = "liveend";
-  if(S.screen==="liveend" && G && G.i<G.deck.length) S.screen = "live";
+  const was = S.screen;
+  if(G && ["live","liveend","livesetup","livewait"].includes(S.screen)){
+    if(G.picking!=null) S.screen = G.picking===N.me ? "livesetup" : "livewait";
+    else S.screen = G.i>=G.deck.length ? "liveend" : "live";
+  }
+  if(S.screen==="livesetup" && was==="livesetup") return; // don't wipe what is being typed
   render();
+}
+
+function renderLiveWait(){
+  const who = nameOf(N.game.picking);
+  h(`${header()}<div class="curtain">
+    <div class="eyebrow">New game</div>
+    <div class="big" style="font-size:34px">${esc(who)} is choosing the vibes<span class="typing"></span></div>
+    <p class="hint">The next game starts here by itself.</p>
+    <button class="linkish" id="me">Let me choose instead</button>
+  </div>
+  <div class="foot"><button class="linkish" id="leave">Leave game</button></div>`);
+  document.getElementById("me").onclick = ()=>pubGame({...N.game, picking:N.me});
+  document.getElementById("leave").onclick = leaveLive;
 }
 
 function makeDeck(){
@@ -597,10 +627,10 @@ function renderLiveEnd(){
     <div class="bar"><i style="width:${p}%"></i></div>
     <h2 style="font-size:30px;color:var(--cherry)">${t}</h2>
     <p class="hint" style="font-size:16px">${sub} ${G.matches} of ${n} answers matched.</p>
-    <div class="row" style="width:100%"><button class="btn" id="again">Play again</button><button class="btn ghost" id="leave">Leave</button></div>
+    <div class="row" style="width:100%"><button class="btn" id="again">New game</button><button class="btn ghost" id="leave">Leave</button></div>
   </div>`);
   if(N.hearted!==G.g+":end" && p>=45){ N.hearted = G.g+":end"; hearts(24); }
-  document.getElementById("again").onclick = ()=>{ S.vibes = G.vibes||S.vibes; S.rounds = G.rounds??S.rounds; pubGame(newGame(G.host)); };
+  document.getElementById("again").onclick = ()=>{ S.vibes = G.vibes||S.vibes; S.rounds = G.rounds??S.rounds; pubGame({...G, picking:N.me}); window.scrollTo(0,0); };
   document.getElementById("leave").onclick = leaveLive;
 }
 
