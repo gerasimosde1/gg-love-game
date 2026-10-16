@@ -96,6 +96,30 @@ input[type=text]:focus{outline:none;border-color:var(--cherry)}
 .status b{color:var(--ink)}
 .typing::after{content:"";display:inline-block;width:1.2em;text-align:left;animation:dots 1.2s steps(4) infinite}
 @keyframes dots{0%{content:""}25%{content:"."}50%{content:".."}75%{content:"..."}}
+.kitty{display:flex;flex-direction:column;align-items:center;gap:10px;padding-top:4px}
+.kpic{width:min(190px,52vw);aspect-ratio:1;max-width:100%;border-radius:28px;overflow:hidden;display:grid;place-items:center;background:var(--bg2);border:3px solid var(--card);box-shadow:0 10px 26px -14px rgba(120,20,70,.6)}
+.kpic img{width:100%;height:100%;object-fit:cover;display:block}
+.kpic svg{width:88%;height:88%;overflow:visible}
+.kbar{width:min(260px,80%);height:8px;border-radius:99px;background:var(--bg2);overflow:hidden}
+.kbar i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--cherry),var(--tang));animation-name:kfill;animation-timing-function:linear;animation-fill-mode:forwards}
+@keyframes kfill{to{width:100%}}
+.k-bounce{animation:kb .7s ease-in-out infinite alternate}
+@keyframes kb{from{transform:translateY(0)}to{transform:translateY(-14px)}}
+.k-wiggle{animation:kw .5s ease-in-out infinite alternate}
+@keyframes kw{from{transform:rotate(-6deg)}to{transform:rotate(6deg)}}
+.k-pop{animation:kp 1s cubic-bezier(.3,1.6,.5,1) both,kpulse 1.2s ease-in-out 1s infinite alternate}
+@keyframes kp{from{transform:scale(.2) rotate(-20deg);opacity:0}to{transform:none;opacity:1}}
+@keyframes kpulse{to{transform:scale(1.06)}}
+.k-float{animation:kf 2.4s ease-in-out infinite}
+@keyframes kf{0%,100%{transform:translate(0,0) rotate(-2deg)}50%{transform:translate(0,-10px) rotate(3deg)}}
+.k-spin{animation:ks 1.1s cubic-bezier(.3,1.4,.5,1) both}
+@keyframes ks{from{transform:rotate(-360deg) scale(.3)}to{transform:none}}
+.k-jelly{animation:kj 1s ease-in-out infinite}
+@keyframes kj{0%,100%{transform:scale(1,1)}30%{transform:scale(1.12,.88)}60%{transform:scale(.92,1.08)}}
+.kpic .blink{transform-box:fill-box;transform-origin:center;animation:kblink 3.2s infinite}
+@keyframes kblink{0%,92%,100%{transform:scaleY(1)}95%{transform:scaleY(.1)}}
+.kpic .tail{transform-box:fill-box;transform-origin:0% 100%;animation:kwag .6s ease-in-out infinite alternate}
+@keyframes kwag{from{transform:rotate(-10deg)}to{transform:rotate(12deg)}}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 </style>
 
@@ -108,73 +132,100 @@ input[type=text]:focus{outline:none;border-color:var(--cherry)}
 const VIBES = {cute:"Cute", funny:"Funny", deep:"Deep", spicy:"Spicy", pick:"This or that", who:"Who's more likely"};
 // t: "a" = about one person ({S} answers for real, {O} guesses) · "u" = both answer for yourselves · "w" = who-is-more-likely
 const Q = [
- // cute
- {c:"cute",t:"a",q:"What's {S}'s love language?",a:["Sweet words","Quality time","Hugs & touch","Little favours"]},
- {c:"cute",t:"a",q:"What does {S} miss most when you're apart?",a:["Cuddles","Talking all night","Eating together","Just being in the same room"]},
- {c:"cute",t:"u",q:"The perfect lazy Sunday together?",a:["Bed + movies all day","Long brunch out","A day trip somewhere new","Cooking together at home"]},
- {c:"cute",t:"a",q:"What gift would make {S} happiest?",a:["Something handmade","A trip","Jewellery or clothes","A surprise dinner"]},
- {c:"cute",t:"u",q:"Best kind of date?",a:["Fancy dinner","Sunset picnic","Arcade or bowling","Night walk by the sea"]},
- {c:"cute",t:"a",q:"How does {S} like to be comforted?",a:["A long hug","Talking it out","Some space first","Food. Always food"]},
- {c:"cute",t:"u",q:"Where's our dream house?",a:["By the sea","In the mountains","City centre","A quiet village"]},
- {c:"cute",t:"a",q:"How does {S} say \"I love you\" without words?",a:["A look","Making food","A random cute text","Holding hands"]},
- {c:"cute",t:"u",q:"Our future pet?",a:["Dog","Cat","Something weird (parrot? lizard?)","No pets, thanks"]},
- {c:"cute",t:"a",q:"What did {S} notice first about {O}?",a:["The eyes","The smile","The voice","The style"]},
- {c:"cute",t:"u",q:"Our song should be…",a:["A slow romantic one","One we scream in the car","Whatever played when we met","We don't need one"]},
- {c:"cute",t:"a",q:"{S}'s favourite memory of us is probably…",a:["Our first date","A trip together","A silly random night","Something very recent"]},
- // funny
- {c:"funny",t:"a",q:"What would {S} do first with 1 million €?",a:["Travel the world","Buy a house","Quit the job","Food & shopping spree"]},
- {c:"funny",t:"a",q:"{S}'s worst habit?",a:["Always on the phone","Always late","Leaves stuff everywhere","Gets hangry"]},
- {c:"funny",t:"a",q:"{S}'s karaoke song would be…",a:["A cheesy love ballad","A rap they don't know the words to","A Greek or Italian classic","They'd never sing"]},
- {c:"funny",t:"a",q:"If {S} were an animal?",a:["A sleepy cat","A golden retriever","A clever fox","A grumpy owl"]},
- {c:"funny",t:"a",q:"{S}'s go-to midnight snack?",a:["Something sweet","Chips","Leftovers straight from the fridge","Toast or a sandwich"]},
- {c:"funny",t:"a",q:"{S}'s daily phone screen time?",a:["Under 2 hours","2–4 hours","4–6 hours","We don't talk about it"]},
- {c:"funny",t:"a",q:"Which superpower would {S} pick?",a:["Teleport","Read minds","Fly","Stop time"]},
- {c:"funny",t:"a",q:"When {S} gets a cold, {S} is…",a:["Brave, totally normal","A tiny dramatic baby","Hiding it","Googling every symptom"]},
- {c:"funny",t:"a",q:"In a horror movie, {S} would…",a:["Die first","Survive to the end","Secretly be the killer","Make jokes the whole time"]},
- {c:"funny",t:"a",q:"What annoys {S} the most?",a:["Slow walkers","Loud chewing","Being interrupted","People who are late"]},
- {c:"funny",t:"u",q:"Pineapple on pizza?",a:["Yes, love it","Absolutely not","Only if it's free","Never tried it"]},
- {c:"funny",t:"a",q:"{S} would be famous for…",a:["Cooking","Being a drama queen/king","An embarrassing viral video","Accidentally inventing something"]},
- // deep
- {c:"deep",t:"a",q:"What worries {S} most about the future?",a:["Money","Health","Not being happy","Losing people they love"]},
- {c:"deep",t:"a",q:"What makes {S} feel most loved?",a:["Being really listened to","Little surprises","Being chosen first","Being held"]},
- {c:"deep",t:"u",q:"Most important thing in a relationship?",a:["Trust","Fun","Communication","Passion"]},
- {c:"deep",t:"a",q:"Where does {S} see themselves in 5 years?",a:["Same city, more settled","Living abroad","Running their own thing","No idea, day by day"]},
- {c:"deep",t:"u",q:"Best way to end a fight?",a:["Talk it out right away","Cool down first","Hug first, talk later","Food and a joke"]},
- {c:"deep",t:"a",q:"If {S} could change one thing in the past…",a:["Nothing at all","A study or work choice","A friendship","Take more risks"]},
- {c:"deep",t:"a",q:"What does {S} need after a bad day?",a:["Silence","To vent","A distraction","A cuddle"]},
- {c:"deep",t:"u",q:"Kids someday?",a:["Yes, more than one","Maybe one","Not sure yet","No"]},
- {c:"deep",t:"a",q:"What is {S} most proud of?",a:["Their work","Their people","Who they've become","A secret achievement"]},
- {c:"deep",t:"u",q:"What matters most in life?",a:["Adventure","Stability","Freedom","Love & family"]},
- {c:"deep",t:"a",q:"With one free year, {S} would…",a:["Travel","Learn something new","Rest. Just rest","Start a project"]},
- {c:"deep",t:"u",q:"Money when living together?",a:["Split everything 50/50","Whoever earns more pays more","One shared pot","Each pays their own"]},
- // spicy (mild)
- {c:"spicy",t:"a",q:"{S}'s favourite place to be kissed?",a:["Lips","Neck","Forehead","Hands"]},
- {c:"spicy",t:"a",q:"When does {S} think {O} looks best?",a:["Just woke up","Dressed up for a night out","After the gym","While laughing"]},
- {c:"spicy",t:"u",q:"Best time for romance?",a:["Morning","Lazy afternoon","Late night","Anytime"]},
- {c:"spicy",t:"a",q:"What does {S} find most attractive about {O}?",a:["The smile","The eyes","The confidence","The humour"]},
- {c:"spicy",t:"a",q:"{S}'s ideal romantic surprise?",a:["Candles & dinner at home","A hotel night","A love letter","A spontaneous trip"]},
- {c:"spicy",t:"u",q:"Our first kiss gets…",a:["10/10, movie scene","Cute but awkward","Nervous mess","Wait… remind me?"]},
- {c:"spicy",t:"a",q:"What gives {S} butterflies?",a:["A long look","A surprise kiss","Hearing \"I miss you\"","Holding hands in public"]},
- {c:"spicy",t:"u",q:"The best kind of flirty text?",a:["Sweet","Funny memes","Voice notes","Bold ones"]},
- {c:"spicy",t:"a",q:"What would {S} like {O} to wear tonight?",a:["Something elegant","Comfy pyjamas","Sporty","Less is more"]},
- // this or that
- {c:"pick",t:"u",q:"Dream trip together?",a:["Japan","Italian road trip","Maldives","Iceland northern lights"]},
- {c:"pick",t:"u",q:"Dinner tonight?",a:["Sushi","Souvlaki","Pizza","Burger"]},
- {c:"pick",t:"u",q:"Weekend plan?",a:["Party all night","Netflix + blanket","Hiking","Seeing friends"]},
- {c:"pick",t:"u",q:"Movie night genre?",a:["Rom-com","Horror","Action","Animated"]},
- {c:"pick",t:"u",q:"Time machine: where do we go?",a:["Meet our future selves","Relive our first date","Ancient Greece","Ancient Rome"]},
- {c:"pick",t:"u",q:"Our wedding style?",a:["Huge party, everyone invited","Small and cozy","Elope abroad","On a beach"]},
- {c:"pick",t:"u",q:"Breakfast?",a:["Pancakes","Eggs","Just coffee","Croissant on the go"]},
- {c:"pick",t:"u",q:"If we opened a business together?",a:["A café","A beach bar","An online shop","A travel agency"]},
- {c:"pick",t:"u",q:"Our season?",a:["Summer","Winter","Spring","Autumn"]},
- {c:"pick",t:"u",q:"A shared superpower for the two of us?",a:["Teleport anywhere","Unlimited money","Never get tired","Speak every language"]},
- // who's more likely
+ // cute (17)
+ {c:"cute",t:"a",q:"{S}'s favourite way to spend a rainy day together?",a:["Movie marathon under a blanket","Baking something sweet","Long talk with tea","Napping all afternoon"]},
+ {c:"cute",t:"a",q:"Which nickname would {S} secretly love?",a:["Something sweet like \"honey\"","A silly made-up one","Their name, said softly","\"My love\""]},
+ {c:"cute",t:"u",q:"Our perfect anniversary?",a:["Back where we first met","A surprise trip","Fancy dinner and dancing","Cozy night at home"]},
+ {c:"cute",t:"a",q:"What does {S} do when missing {O}?",a:["Looks at our photos","Texts right away","Plays \"our\" songs","Pretends to be fine"]},
+ {c:"cute",t:"a",q:"Which small gesture melts {S} the most?",a:["A forehead kiss","Saving the last bite","A good-morning text","Playing with their hair"]},
+ {c:"cute",t:"u",q:"Best way to wake up together?",a:["Breakfast in bed","Cuddles and snooze","A morning walk","Coffee on the balcony"]},
+ {c:"cute",t:"a",q:"What would {S} name our first pet?",a:["A human name like Steve","A food name like Mochi","Something fancy","A Greek or Italian name"]},
+ {c:"cute",t:"a",q:"What makes {S} smile instantly?",a:["A cute animal","A compliment","A silly face from {O}","Good food"]},
+ {c:"cute",t:"u",q:"Our ideal holiday photo?",a:["Sunset kiss","Silly faces","Only food pics","Matching outfits"]},
+ {c:"cute",t:"a",q:"What does {S} love doing together most?",a:["Cooking","Travelling","Watching series","Walking and talking"]},
+ {c:"cute",t:"a",q:"How does {S} want to spend their birthday?",a:["Big party","Small dinner with close people","A trip","Quietly with {O}"]},
+ {c:"cute",t:"u",q:"A book about us would be a…",a:["Romantic comedy","Adventure story","Drama","Cookbook"]},
+ {c:"cute",t:"a",q:"{S}'s comfort movie?",a:["A Disney or Pixar film","A rom-com","Harry Potter","A cartoon from childhood"]},
+ {c:"cute",t:"a",q:"Which compliment does {S} love most?",a:["You're beautiful","You're so smart","You make me laugh","I'm proud of you"]},
+ {c:"cute",t:"u",q:"Most romantic place to get engaged?",a:["Paris","A quiet beach at night","A mountain top","At home, simple"]},
+ {c:"cute",t:"a",q:"What would {S} cook to impress {O}?",a:["Pasta","Something Greek","A dessert","They'd order delivery"]},
+ {c:"cute",t:"u",q:"Favourite cuddle position?",a:["Big spoon, little spoon","Head on the chest","Legs tangled","Just holding hands"]},
+ // funny (18)
+ {c:"funny",t:"a",q:"What would {S} get arrested for?",a:["Too much sarcasm","Stealing fries","Being too loud","Online shopping crimes"]},
+ {c:"funny",t:"a",q:"{S}'s secret talent?",a:["Weird dance moves","Perfect impressions","Eating super fast","Sleeping anywhere"]},
+ {c:"funny",t:"a",q:"If {S} were a dessert?",a:["Tiramisu","Baklava","Chocolate cake","Ice cream"]},
+ {c:"funny",t:"a",q:"How long would {S} survive alone on an island?",a:["One hour","One day","One week","They'd rule the island"]},
+ {c:"funny",t:"a",q:"First thing {S} does in the morning?",a:["Checks the phone","Bathroom, urgently","Snoozes 5 times","Coffee"]},
+ {c:"funny",t:"a",q:"{S}'s most used emoji?",a:["😂","❤️","🙄","🥺"]},
+ {c:"funny",t:"a",q:"{S}'s weirdest food habit?",a:["Fries dipped in ice cream","Mayo on pizza","Cheese on everything","Sweet and salty together"]},
+ {c:"funny",t:"a",q:"Which cartoon character is {S}?",a:["Garfield","SpongeBob","Shrek","Mickey or Minnie"]},
+ {c:"funny",t:"a",q:"{S}'s reality show would be called…",a:["Hungry Again","Late But Fabulous","The Drama Hour","Sleeping Beauty"]},
+ {c:"funny",t:"a",q:"How does {S} dance at a wedding?",a:["Like nobody's watching","Only after two drinks","Only the traditional dances","Doesn't dance at all"]},
+ {c:"funny",t:"a",q:"At 3am {S} is most likely…",a:["Eating","Scrolling","Overthinking","Deep asleep"]},
+ {c:"funny",t:"a",q:"If {S} were a kitchen tool?",a:["A spatula","A blender","A pizza cutter","A toaster"]},
+ {c:"funny",t:"a",q:"What is {S} most likely to lose?",a:["Keys","Phone","Sunglasses","Their patience"]},
+ {c:"funny",t:"a",q:"{S}'s biggest fear (be honest)?",a:["Spiders","Heights","Being bored","Running out of snacks"]},
+ {c:"funny",t:"u",q:"Worst date idea ever?",a:["A trip to the dentist","Dinner with the exes","Camping in the rain","A maths lesson"]},
+ {c:"funny",t:"a",q:"Invisible for a day, {S} would…",a:["Prank {O}","Sneak into a concert","Eat at a fancy place for free","Sleep, honestly"]},
+ {c:"funny",t:"a",q:"During a scary movie, {S}…",a:["Screams","Laughs","Hides behind {O}","Falls asleep"]},
+ {c:"funny",t:"u",q:"If our relationship were a car?",a:["A tiny Fiat","A Ferrari","A camper van","A bumper car"]},
+ // deep (16)
+ {c:"deep",t:"a",q:"What does {S} value most in a friend?",a:["Loyalty","Honesty","Fun","Being there in hard times"]},
+ {c:"deep",t:"a",q:"When does {S} feel most like themselves?",a:["With {O}","With family","Travelling","Alone"]},
+ {c:"deep",t:"u",q:"What should we never stop doing?",a:["Going on dates","Laughing together","Saying I love you","Travelling"]},
+ {c:"deep",t:"a",q:"What would {S} like to learn next?",a:["A new language","An instrument","Cooking properly","A new sport"]},
+ {c:"deep",t:"a",q:"How does {S} handle stress?",a:["Talks to someone","Works out","Eats","Hides from the world"]},
+ {c:"deep",t:"u",q:"Where should we be in 10 years?",a:["Married with kids","Travelling the world","Great careers","A simple, quiet life"]},
+ {c:"deep",t:"a",q:"{S}'s biggest dream?",a:["Their own house","A dream job","Seeing the whole world","A big happy family"]},
+ {c:"deep",t:"a",q:"What does {S} need more of lately?",a:["Sleep","Free time","Hugs","Adventure"]},
+ {c:"deep",t:"u",q:"Our most important promise?",a:["Always be honest","Never sleep angry","Always have each other's back","Never stop flirting"]},
+ {c:"deep",t:"a",q:"Which family tradition will {S} keep forever?",a:["Big Sunday lunches","Holiday celebrations","Family trips","Birthday rituals"]},
+ {c:"deep",t:"a",q:"What makes {S} feel safe?",a:["A hug","Being heard","Knowing the plan","Being at home"]},
+ {c:"deep",t:"u",q:"A big money win: what do we do?",a:["Buy a home","Travel for a year","Invest it","Help our families"]},
+ {c:"deep",t:"a",q:"What would {S} tell their younger self?",a:["Don't worry so much","Be braver","Love yourself","Save money"]},
+ {c:"deep",t:"a",q:"{S}'s idea of success?",a:["Being happy","Being rich","Having a family","Doing what they love"]},
+ {c:"deep",t:"u",q:"The secret to lasting love?",a:["Laughing a lot","Space for each other","Talking about everything","Keeping the spark"]},
+ {c:"deep",t:"a",q:"What hurts {S} the most?",a:["Being ignored","Being lied to","Being criticised","Being left out"]},
+ // spicy, mild (15)
+ {c:"spicy",t:"a",q:"{S}'s favourite feature of {O}?",a:["Lips","Eyes","Hands","Hair"]},
+ {c:"spicy",t:"a",q:"Where would {S} love a surprise kiss?",a:["In the rain","In the middle of a crowd","In the kitchen","Under the covers"]},
+ {c:"spicy",t:"a",q:"{S}'s favourite scent on {O}?",a:["Their perfume","Fresh from the shower","Their natural smell","Sunscreen and sea"]},
+ {c:"spicy",t:"u",q:"Most romantic way to say goodnight?",a:["A long kiss","A whispered compliment","Falling asleep hugging","A sweet text, even side by side"]},
+ {c:"spicy",t:"a",q:"Which look of {O} drives {S} crazy?",a:["Dressed up to go out","Gym clothes","Wearing {S}'s shirt","Swimwear"]},
+ {c:"spicy",t:"a",q:"While kissing {O}, {S} thinks about…",a:["Nothing, totally lost","How lucky they are","What comes next 👀","Food, honestly"]},
+ {c:"spicy",t:"u",q:"Ideal end of a date night?",a:["Dancing in the kitchen","A bath together","Stargazing","Talking until sunrise"]},
+ {c:"spicy",t:"a",q:"{S}'s flirting style?",a:["Teasing jokes","Long eye contact","Compliments","Playing hard to get"]},
+ {c:"spicy",t:"a",q:"{S} would love a love letter that is…",a:["Sweet and poetic","Funny","Bold and flirty","Short but intense"]},
+ {c:"spicy",t:"u",q:"Best place for a slow dance?",a:["Our living room","Under the stars","A fancy ball","On the beach"]},
+ {c:"spicy",t:"a",q:"What makes {S} blush?",a:["A wink","A whisper in the ear","A compliment in public","A hand on the waist"]},
+ {c:"spicy",t:"a",q:"{S}'s favourite kind of kiss?",a:["Soft and slow","Quick and cute","A surprise from behind","On the forehead"]},
+ {c:"spicy",t:"u",q:"Massage time: who gets one first?",a:["Me","You","Both at once (somehow)","Whoever loses this game"]},
+ {c:"spicy",t:"a",q:"When is {O} most irresistible to {S}?",a:["When confident","When caring","When focused","When sleepy"]},
+ {c:"spicy",t:"u",q:"Most romantic weather?",a:["Rain","Snow","A warm summer night","Autumn sunset"]},
+ // this or that (16)
+ {c:"pick",t:"u",q:"Ice cream flavour?",a:["Chocolate","Pistachio","Strawberry","Vanilla"]},
+ {c:"pick",t:"u",q:"Night in?",a:["Board games","Karaoke","Cooking together","Face masks and gossip"]},
+ {c:"pick",t:"u",q:"Next holiday?",a:["Greek islands","Italian lakes","Paris","Disneyland"]},
+ {c:"pick",t:"u",q:"Drink of the night?",a:["Wine","Cocktails","Beer","Freddo espresso"]},
+ {c:"pick",t:"u",q:"Road trip playlist?",a:["Pop hits","Old classics","Greek & Italian songs","Rap"]},
+ {c:"pick",t:"u",q:"A city to live in forever?",a:["Athens","Rome","New York","Tokyo"]},
+ {c:"pick",t:"u",q:"Our dream ride?",a:["A Vespa","A Jeep","A Tesla","A classic convertible"]},
+ {c:"pick",t:"u",q:"Movie snack?",a:["Popcorn","Nachos","Chocolate","Gummy bears"]},
+ {c:"pick",t:"u",q:"A sport to do together?",a:["Tennis","Swimming","Gym","Dancing"]},
+ {c:"pick",t:"u",q:"Big night out?",a:["Club","Concert","Fancy restaurant","Bar hopping"]},
+ {c:"pick",t:"u",q:"Christmas this year?",a:["With {A}'s family","With {B}'s family","Just us two","A snowy trip"]},
+ {c:"pick",t:"u",q:"Best pasta?",a:["Spaghetti","Penne","Lasagna","Gnocchi"]},
+ {c:"pick",t:"u",q:"Our house style?",a:["Modern and minimal","Cozy cottage","Villa with a pool","City penthouse"]},
+ {c:"pick",t:"u",q:"Animal to cuddle all day?",a:["A kitten","A puppy","A bunny","A panda"]},
+ {c:"pick",t:"u",q:"Magic date?",a:["Flying over the city","Dinner in the past","Underwater picnic","Picnic on the moon"]},
+ {c:"pick",t:"u",q:"Morning drink?",a:["Coffee","Tea","Fresh orange juice","Hot chocolate"]},
+ // who's more likely (18)
  ...[
-  "get us lost","cry at a movie","fall asleep first during a film","eat the last slice","apologise first",
-  "forget an anniversary","survive a zombie apocalypse","spend too much money","take longer to get ready",
-  "say \"I love you\" more","be the better cook","plan the next date","get jealous","dance in public",
-  "steal the blanket","text first after a fight","scream at a spider","be grumpy in the morning",
-  "laugh at their own joke","win a board game","start a tickle fight","order for both of us"
+  "cry at a wedding","get a tattoo first","forget where they parked","talk in their sleep",
+  "eat dessert before dinner","become a millionaire","get lost in IKEA","adopt five cats",
+  "sing in the shower","fall in love with a random dog","lose their phone today","laugh at the wrong moment",
+  "pick the restaurant","stay up the latest","burn the dinner","cheat at a game",
+  "say sorry with food","plan a surprise"
  ].map(x=>({c:"who",t:"w",q:"Who's more likely to "+x+"?",a:["{A}","{B}","Both of us","Neither"]}))
 ];
 
@@ -340,22 +391,70 @@ function renderPlay(){
      </button>`;}).join("")}</div>
   ${reveal?`<div class="result ${match?"match":"miss"}"><div class="big">${match?"In sync! ♥":"Oops, not this time"}</div>
      <p class="hint">${match? (q.t==="a"?`${esc(nameOf(1-fp))} knows ${esc(nameOf(fp))} well.`:"Same wavelength.") : (q.t==="a"?`${esc(nameOf(fp))}, tell ${esc(nameOf(1-fp))} why!`:"Talk it out. Who's right?")}</p></div>
-     <button class="btn" id="next">${S.i+1<S.deck.length?"Next question":"See our score"}</button>`:""}`);
+     ${kittyHTML(S.auto, S.i+1<S.deck.length?"Next question coming…":"Your score is coming…")}`:""}`);
   if(!reveal){
     document.getElementById("ans").onclick = e=>{
       const b = e.target.closest(".ans"); if(!b) return; const k=+b.dataset.k;
       if(S.phase==="first"){ S.pickA=k; S.phase="pass"; }
       else { S.pickB=k; S.phase="reveal";
         const m = S.pickA===S.pickB; if(m){S.matches++; hearts(14);}
-        S.history.push({q:fill(q.q),m}); }
+        S.history.push({q:fill(q.q),m});
+        const i = S.i; S.auto = kittyStart();
+        setTimeout(()=>{
+          if(S.screen!=="play" || S.i!==i || S.phase!=="reveal") return;
+          S.i++; S.pickA=S.pickB=null; S.phase="first";
+          if(S.i>=S.deck.length) S.screen="end"; render(); window.scrollTo(0,0);
+        }, BREAK_MS); }
       render(); window.scrollTo(0,0);
     };
-  } else {
-    document.getElementById("next").onclick = ()=>{
-      S.i++; S.pickA=S.pickB=null; S.phase="first";
-      if(S.i>=S.deck.length) S.screen="end"; render(); window.scrollTo(0,0);
-    };
   }
+}
+
+// ---------- Kitty break between questions ----------
+// Your own kitty photos/GIFs go in the kitties/ folder, listed in kitties/list.json.
+// Until there are any, a drawn cartoon kitty is shown.
+const BREAK_MS = 6000;
+let KITS = [];
+fetch("kitties/list.json", {cache:"no-store"}).then(r=>r.ok?r.json():[]).then(a=>{
+  if(Array.isArray(a)) KITS = a.filter(x=>typeof x==="string" && /^[\w.-]+$/.test(x)).map(x=>"kitties/"+x);
+  KITS.forEach(src=>{ const im = new Image(); im.src = src; }); // preload
+}).catch(()=>{});
+const KANIMS = ["k-bounce","k-wiggle","k-pop","k-float","k-spin","k-jelly"];
+let lastKit = -1;
+function kittyStart(){
+  const n = KITS.length || CATS.length; let r;
+  do { r = Math.random()*n|0; } while(n>1 && r===lastKit);
+  lastKit = r;
+  return {t0:Date.now(), i:r, anim:KANIMS[Math.random()*KANIMS.length|0]};
+}
+function kittyHTML(k, label){
+  if(!k) return "";
+  const left = Math.max(0, BREAK_MS-(Date.now()-k.t0));
+  const media = KITS.length ? `<img src="${KITS[k.i%KITS.length]}" alt="Kitty">` : catSVG(k.i%CATS.length);
+  return `<div class="kitty"><div class="kpic ${k.anim}">${media}</div>
+    <div class="kbar" aria-hidden="true"><i style="animation-duration:${BREAK_MS}ms;animation-delay:-${BREAK_MS-left}ms"></i></div>
+    <div class="small">${label}</div></div>`;
+}
+// fur, darker fur, eyes
+const CATS = [["#F4A259","#D9772B","#3B2A1A"],["#A7ADB4","#7A8189","#2C5E3F"],["#2E2A2F","#151316","#9BD15B"],
+  ["#F3E3C3","#D8C095","#3D6FB0"],["#FFFFFF","#D9D4DC","#4A9DD8"],["#C9A27E","#8C6A4F","#2B1E14"]];
+function catSVG(n){
+  const [fur,dark,eye] = CATS[n];
+  return `<svg viewBox="0 0 200 200" role="img" aria-label="Cartoon kitty">
+    <path class="tail" d="M150 160 C190 150 190 100 170 85" fill="none" stroke="${dark}" stroke-width="14" stroke-linecap="round"/>
+    <ellipse cx="100" cy="158" rx="56" ry="38" fill="${fur}"/>
+    <ellipse cx="78" cy="190" rx="14" ry="8" fill="${dark}"/><ellipse cx="122" cy="190" rx="14" ry="8" fill="${dark}"/>
+    <polygon points="52,72 60,22 94,52" fill="${fur}"/><polygon points="148,72 140,22 106,52" fill="${fur}"/>
+    <polygon points="62,62 65,36 84,52" fill="#F7A8B8"/><polygon points="138,62 135,36 116,52" fill="#F7A8B8"/>
+    <circle cx="100" cy="92" r="52" fill="${fur}"/>
+    <path d="M86 46 Q100 58 114 46" fill="none" stroke="${dark}" stroke-width="5" stroke-linecap="round"/>
+    <g class="blink"><ellipse cx="80" cy="90" rx="8" ry="11" fill="${eye}"/><ellipse cx="120" cy="90" rx="8" ry="11" fill="${eye}"/>
+      <circle cx="83" cy="86" r="3" fill="#fff"/><circle cx="123" cy="86" r="3" fill="#fff"/></g>
+    <circle cx="66" cy="108" r="8" fill="#F7A8B8" opacity=".55"/><circle cx="134" cy="108" r="8" fill="#F7A8B8" opacity=".55"/>
+    <polygon points="94,104 106,104 100,111" fill="#E8798F"/>
+    <path d="M100 111 Q100 119 92 119 M100 111 Q100 119 108 119" fill="none" stroke="#3B2A30" stroke-width="2.5" stroke-linecap="round"/>
+    <path d="M56 104 L30 98 M56 112 L30 114 M144 104 L170 98 M144 112 L170 114" stroke="${dark}" stroke-width="2.5" stroke-linecap="round"/>
+  </svg>`;
 }
 
 function verdict(p){
@@ -581,6 +680,13 @@ function renderLive(){
   const pA = pickOf(fp), pB = pickOf(1-fp), match = reveal && pA===pB;
   const key = G.g+":"+i;
   if(reveal && match && N.hearted!==key){ N.hearted = key; hearts(14); }
+  if(reveal && N.autoKey!==key){
+    N.autoKey = key; N.auto = kittyStart(); const g = G.g;
+    setTimeout(()=>{ // both phones do this; the same next state is written twice, which is harmless
+      const cur = N && N.game; if(!cur || cur.g!==g || cur.i!==i) return;
+      pubGame({...cur, i:i+1, matches:cur.matches+(match?1:0), done:cur.done+1}); window.scrollTo(0,0);
+    }, BREAK_MS);
+  }
   let status = "";
   if(!reveal){
     if(mine===null) status = theirs!==null ? `<b>${esc(nameOf(other))}</b> has answered ✓ · your turn` : `Both pick now · <b>${esc(nameOf(other))}</b> is thinking<span class="typing"></span>`;
@@ -600,19 +706,13 @@ function renderLive(){
      </button>`;}).join("")}</div>
   ${reveal?`<div class="result ${match?"match":"miss"}"><div class="big">${match?"In sync! ♥":"Oops, not this time"}</div>
      <p class="hint">${match? (q.t==="a"?`${esc(nameOf(1-fp))} knows ${esc(nameOf(fp))} well.`:"Same wavelength.") : (q.t==="a"?`${esc(nameOf(fp))}, tell ${esc(nameOf(1-fp))} why!`:"Talk it out. Who's right?")}</p></div>
-     <button class="btn" id="next">${i+1<G.deck.length?"Next question":"See our score"}</button>`
+     ${kittyHTML(N.auto, i+1<G.deck.length?"Next question coming…":"Your score is coming…")}`
    : `<div class="status">${status}</div>`}
   <div class="foot"><button class="linkish" id="leave">Leave game</button></div>`);
   if(mine===null){
     document.getElementById("ans").onclick = e=>{
       const b = e.target.closest(".ans"); if(!b) return;
       N.picks[N.me] = {g:G.g, i, k:+b.dataset.k}; pub("pick/"+N.me, N.picks[N.me]); onLive();
-    };
-  }
-  if(reveal){
-    document.getElementById("next").onclick = ()=>{
-      const cur = N.game; if(cur.g!==G.g || cur.i!==i) return;
-      pubGame({...cur, i:i+1, matches:cur.matches+(match?1:0), done:cur.done+1}); window.scrollTo(0,0);
     };
   }
   document.getElementById("leave").onclick = leaveLive;
