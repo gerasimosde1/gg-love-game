@@ -83,12 +83,27 @@ input[type=text]:focus{outline:none;border-color:var(--cherry)}
 .ai{display:flex;flex-direction:column;gap:8px}
 .foot{margin-top:auto;text-align:center;font-size:13px;color:var(--muted)}
 .linkish{all:unset;cursor:pointer;text-decoration:underline;color:var(--muted);font-weight:700}
+.btn.alt{background:var(--tang);color:#2B1530;box-shadow:0 6px 0 color-mix(in srgb,var(--tang) 55%,#000)}
+.net{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:700;color:var(--muted);margin-top:-8px}
+.ndot{width:9px;height:9px;border-radius:50%;background:var(--muted);flex:none}
+.ndot.on{background:var(--good);box-shadow:0 0 0 4px color-mix(in srgb,var(--good) 25%,transparent)}
+.ndot.off{background:var(--miss)}
+.qrbox{background:#fff;border-radius:18px;padding:10px;width:min(230px,70vw);margin:0 auto;line-height:0}
+.qrbox svg{width:100%;height:auto;display:block}
+.linkbox{font:700 13px var(--body);word-break:break-all;color:var(--muted);text-align:center;user-select:all}
+.seg{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+.status{text-align:center;font-weight:800;color:var(--muted);padding:4px 0}
+.status b{color:var(--ink)}
+.typing::after{content:"";display:inline-block;width:1.2em;text-align:left;animation:dots 1.2s steps(4) infinite}
+@keyframes dots{0%{content:""}25%{content:"."}50%{content:".."}75%{content:"..."}}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 </style>
 
 <div class="wrap" id="app"></div>
 <div class="hearts" id="hearts" aria-hidden="true"></div>
 
+<script src="https://cdn.jsdelivr.net/npm/mqtt@5.10.1/dist/mqtt.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
 <script>
 const VIBES = {cute:"Cute", funny:"Funny", deep:"Deep", spicy:"Spicy", pick:"This or that", who:"Who's more likely"};
 // t: "a" = about one person ({S} answers for real, {O} guesses) · "u" = both answer for yourselves · "w" = who-is-more-likely
@@ -182,23 +197,35 @@ function shuffle(a){a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.rando
 // whose turn: p 0 = player A, 1 = player B. Round i: first picker alternates.
 const nameOf = p => p===0 ? S.a : S.b;
 function cur(){ return S.deck[S.i]; }
-function firstP(){ return S.i % 2; }
-function fill(text, q){
-  const subj = nameOf(firstP()), oth = nameOf(1-firstP());
+function firstP(i=S.i){ return i % 2; }
+function fill(text, i=S.i){
+  const subj = nameOf(firstP(i)), oth = nameOf(1-firstP(i));
   return text.replaceAll("{S}",subj).replaceAll("{O}",oth).replaceAll("{A}",S.a).replaceAll("{B}",S.b);
 }
-function hint(q){
-  const subj = nameOf(firstP()), oth = nameOf(1-firstP());
+function hint(q, i=S.i){
+  const subj = nameOf(firstP(i)), oth = nameOf(1-firstP(i));
   if(q.t==="a") return `${subj} answers for real · ${oth} guesses`;
   if(q.t==="w") return "Both answer. Same pick = point";
   return "Both answer for yourselves. Same pick = point";
 }
 
 function header(){
-  const done = S.screen==="play" ? S.i : S.history.length;
+  const live = (S.screen==="live"||S.screen==="liveend") && N && N.game;
+  let right;
+  if(live) right = `<b>${N.game.matches}</b> / ${N.game.done} in sync`;
+  else if(S.screen==="play"||S.screen==="end") right = `<b>${S.matches}</b> / ${S.history.length} in sync`;
+  else right = `${esc(S.a)} &amp; ${esc(S.b)}`;
+  let bar = "";
+  if(S.screen==="play") bar = `<div class="progress" aria-hidden="true"><i style="width:${(S.i/S.deck.length*100).toFixed(1)}%"></i></div>`;
+  if(live && S.screen==="live") bar = `<div class="progress" aria-hidden="true"><i style="width:${(N.game.i/N.game.deck.length*100).toFixed(1)}%"></i></div>`;
+  let net = "";
+  if(N && N.me!=null && ["lobby","live","liveend"].includes(S.screen)){
+    const other = 1-N.me, on = !!N.online[other];
+    net = `<div class="net"><span class="ndot ${N.connected?(on?"on":""):"off"}"></span>${!N.connected?"Connecting…":on?`${esc(nameOf(other))} is here`:`Waiting for ${esc(nameOf(other))}`}
+      <span style="margin-left:auto">You: <b>${esc(nameOf(N.me))}</b></span></div>`;
+  }
   return `<div class="logo"><div class="gg">GG<small>love game</small></div>
-  <div class="score">${S.screen==="play"||S.screen==="end"?`<b>${S.matches}</b> / ${S.history.length} in sync`:`${esc(S.a)} &amp; ${esc(S.b)}`}</div></div>
-  ${S.screen==="play"?`<div class="progress" aria-hidden="true"><i style="width:${(S.i/S.deck.length*100).toFixed(1)}%"></i></div>`:""}`;
+  <div class="score">${right}</div></div>${net}${bar}`;
 }
 
 function render(){
@@ -206,6 +233,11 @@ function render(){
   if(S.screen==="setup") return renderSetup();
   if(S.screen==="play") return renderPlay();
   if(S.screen==="end") return renderEnd();
+  if(S.screen==="lobby") return renderLobby();
+  if(S.screen==="joinwait") return renderJoinWait();
+  if(S.screen==="joinhello") return renderJoinHello();
+  if(S.screen==="live") return renderLive();
+  if(S.screen==="liveend") return renderLiveEnd();
 }
 
 function renderIntro(){
@@ -231,7 +263,9 @@ function renderSetup(){
     <div><label>Vibes</label><div class="vibes" id="vibes">${Object.entries(VIBES).map(([k,v])=>`<button class="vibe" data-k="${k}" aria-pressed="${S.vibes.includes(k)}">${v}</button>`).join("")}</div></div>
     <div><label>Questions</label><div class="vibes" id="rounds">${[8,12,20,0].map(n=>`<button class="vibe" data-n="${n}" aria-pressed="${S.rounds===n}">${n||"All"}</button>`).join("")}</div></div>
     <div class="small" id="count"></div>
-    <button class="btn" id="start">Start</button>
+    <button class="btn" id="start">Play on one phone</button>
+    <button class="btn alt" id="start2">Play on two phones</button>
+    <div class="small" style="text-align:center;margin-top:-6px">Two phones: each answers on their own phone, both see the reveal live.</div>
   </div>
   <div class="card ai" id="aibox" hidden>
     <div class="eyebrow">Fresh questions</div>
@@ -248,6 +282,7 @@ function renderSetup(){
   document.getElementById("rounds").onclick = e=>{const n=e.target.dataset.n;if(n===undefined)return;S.rounds=+n;
     document.querySelectorAll("#rounds .vibe").forEach(b=>b.setAttribute("aria-pressed",+b.dataset.n===S.rounds));};
   document.getElementById("start").onclick = start;
+  document.getElementById("start2").onclick = hostLive;
   setupAI();
 }
 
@@ -369,10 +404,216 @@ Reply with only a JSON array like [{"c":"funny","t":"a","q":"...","a":["...","..
   };
 }
 
-// keep the game state when the page updates while open
-window.claude?.hot?.snapshot?.(()=>S);
-function boot(data){ if(data && data.screen) S = Object.assign(S,data); render(); }
-window.claude?.hot?.ready ? window.claude.hot.ready(boot) : boot(window.claude?.hot?.data ?? {});
+// ---------- Two phones, live ----------
+// Each game is a "room" on a free public message relay. Shared state lives in retained messages:
+//   game      {g, a, b, host, vibes, rounds, deck:[Q index], i, matches, done}
+//   pick/<p>  {g, i, k}      (p 0 = player 1, 1 = player 2)
+//   online/<p>{on}
+const BROKER = "wss://broker.hivemq.com:8884/mqtt";
+let N = null;
+const rid = n => Array.from(crypto.getRandomValues(new Uint8Array(n)), x => "abcdefghjkmnpqrstuvwxyz23456789"[x % 31]).join("");
+const liveLink = () => location.origin + location.pathname + "?room=" + N.room;
+const roomKey = r => "ggl-room-" + r;
+
+function connect(room, me){
+  const keep = N && N.room===room ? N.game : null;
+  N = {room, me, game:keep, picks:{}, online:{}, client:null, connected:false, base:"ggl/"+room+"/", t0:Date.now(), hearted:""};
+  if(typeof mqtt==="undefined"){ N.failed = true; return; }
+  const opts = {clientId:"ggl_"+rid(10), clean:true, reconnectPeriod:2000, connectTimeout:10000};
+  if(me!=null) opts.will = {topic:N.base+"online/"+me, payload:JSON.stringify({on:false}), retain:true, qos:0};
+  const c = mqtt.connect(BROKER, opts), mine = N;
+  N.client = c;
+  c.on("connect", ()=>{ if(N!==mine) return; N.connected = true; c.subscribe(N.base+"#", {qos:1});
+    if(N.me!=null) pub("online/"+N.me, {on:true}); render(); });
+  c.on("close", ()=>{ if(N!==mine || !N.connected) return; N.connected = false; render(); });
+  c.on("message", (t, buf)=>{
+    if(N!==mine) return;
+    let m; try{ m = JSON.parse(buf.toString()); }catch(e){ return; }
+    const k = t.slice(N.base.length);
+    if(k==="game"){ if(!m || !Array.isArray(m.deck)) return; N.game = m; S.a = m.a; S.b = m.b; }
+    else if(k.startsWith("pick/")) N.picks[+k.slice(5)] = m;
+    else if(k.startsWith("online/")) N.online[+k.slice(7)] = !!(m && m.on);
+    else return;
+    onLive();
+  });
+}
+function pub(k, obj){ N && N.client && N.client.publish(N.base+k, JSON.stringify(obj), {retain:true, qos:1}); }
+function pubGame(G){ N.game = G; pub("game", G); onLive(); }
+function pickOf(p){ const G = N.game, x = N.picks[p]; return G && x && x.g===G.g && x.i===G.i ? x.k : null; }
+
+function onLive(){
+  const G = N.game;
+  if(S.screen==="joinwait" && G) S.screen = "joinhello";
+  if(S.screen==="lobby" && G && N.online[1-N.me]) S.screen = "live";
+  if(S.screen==="live" && G && G.i>=G.deck.length) S.screen = "liveend";
+  if(S.screen==="liveend" && G && G.i<G.deck.length) S.screen = "live";
+  render();
+}
+
+function makeDeck(){
+  const idx = Q.map((q,i)=>i).filter(i=>S.vibes.includes(Q[i].c));
+  let d = shuffle(idx); if(S.rounds) d = d.slice(0, S.rounds); return d;
+}
+function newGame(host){ return {g:rid(6), a:S.a, b:S.b, host, vibes:S.vibes, rounds:S.rounds, deck:makeDeck(), i:0, matches:0, done:0}; }
+
+function hostLive(){
+  S.a = document.getElementById("na").value.trim()||"Player 1";
+  S.b = document.getElementById("nb").value.trim()||"Player 2";
+  store.set({a:S.a,b:S.b,vibes:S.vibes,rounds:S.rounds});
+  const room = rid(6), me = 1;
+  try{ localStorage.setItem(roomKey(room), me); }catch(e){}
+  history.replaceState(null, "", "?room="+room);
+  connect(room, me);
+  pubGame(newGame(me));
+  S.screen = "lobby"; render();
+}
+
+function setMe(me){
+  const old = N.me;
+  if(old!=null && old!==me) pub("online/"+old, {on:false});
+  try{ localStorage.setItem(roomKey(N.room), me); }catch(e){}
+  const c = N.client, G = N.game, room = N.room;
+  if(c) setTimeout(()=>c.end(), 300);
+  connect(room, me);
+  if(G && G.host!==undefined && S.screen==="lobby"){ pubGame({...G, host:me}); }
+}
+
+function leaveLive(){
+  if(N){ if(N.me!=null) pub("online/"+N.me, {on:false}); const c = N.client; if(c) setTimeout(()=>c.end(), 300); }
+  N = null; history.replaceState(null, "", location.pathname);
+  S.screen = "setup"; render();
+}
+
+function qrSvg(t){
+  try{ const q = qrcode(0, "M"); q.addData(t); q.make(); return q.createSvgTag({cellSize:6, margin:2, scalable:true}); }catch(e){ return ""; }
+}
+
+function renderLobby(){
+  const other = 1-N.me, link = liveLink();
+  h(`${header()}
+  <div class="card" style="display:flex;flex-direction:column;gap:14px;text-align:center">
+    <div class="eyebrow">Two phones</div>
+    <h2 style="font-size:26px">${esc(nameOf(other))}, scan this</h2>
+    <div class="qrbox">${qrSvg(link)}</div>
+    <div class="linkbox" id="lk">${esc(link)}</div>
+    <div class="row"><button class="btn ghost" id="copy">Copy link</button>${navigator.share?`<button class="btn ghost" id="share">Send link</button>`:""}</div>
+    <div><label style="margin-bottom:8px">This phone is</label>
+      <div class="seg">${[0,1].map(p=>`<button class="vibe" data-p="${p}" aria-pressed="${N.me===p}">${esc(nameOf(p))}</button>`).join("")}</div></div>
+    <button class="btn" id="go">Start</button>
+    <div class="small">The game starts by itself when ${esc(nameOf(other))} joins.</div>
+  </div>
+  <div class="foot"><button class="linkish" id="leave">Back</button></div>`);
+  document.getElementById("copy").onclick = async (e)=>{
+    try{ await navigator.clipboard.writeText(link); e.target.textContent = "Copied"; }
+    catch(err){ const r = document.createRange(); r.selectNodeContents(document.getElementById("lk")); const s = getSelection(); s.removeAllRanges(); s.addRange(r); }
+  };
+  const sh = document.getElementById("share");
+  if(sh) sh.onclick = ()=>navigator.share({title:"GG love game", text:"Play with me ♥", url:link}).catch(()=>{});
+  document.querySelector(".seg").onclick = e=>{ const p = e.target.dataset.p; if(p===undefined || +p===N.me) return; setMe(+p); render(); };
+  document.getElementById("go").onclick = ()=>{ S.screen = "live"; onLive(); };
+  document.getElementById("leave").onclick = leaveLive;
+}
+
+function renderJoinWait(){
+  const slow = N && (N.failed || Date.now()-N.t0 > 12000);
+  h(`${header()}<div class="curtain">
+    <div class="eyebrow">GG love game</div>
+    <div class="big" style="font-size:34px">${slow?"Can't find this game":"Joining<span class=\"typing\"></span>"}</div>
+    <p class="hint">${slow?"Check the internet connection, or ask for a new QR code.":"Connecting to your partner's phone."}</p>
+    ${slow?`<button class="btn" id="retry">Try again</button><button class="linkish" id="solo">Play on one phone instead</button>`:""}
+  </div>`);
+  if(slow){
+    document.getElementById("retry").onclick = ()=>location.reload();
+    document.getElementById("solo").onclick = leaveLive;
+  } else setTimeout(()=>{ if(S.screen==="joinwait") render(); }, 12500);
+}
+
+function renderJoinHello(){
+  const G = N.game, me = 1-G.host;
+  h(`${header()}<div class="curtain">
+    <div class="eyebrow">A little surprise for</div>
+    <div class="big">${esc(nameOf(me))}</div>
+    <p style="font-size:18px;max-width:30ch;margin:0">${esc(nameOf(G.host))} made you a game. Answer on your phone, and see if you two match.</p>
+    <button class="btn" id="go">Let's play ♥</button>
+    <button class="linkish" id="other">I'm ${esc(nameOf(G.host))}</button>
+  </div>`);
+  const join = p=>{ setMe(p); S.screen = "live"; onLive(); hearts(10); };
+  document.getElementById("go").onclick = ()=>join(me);
+  document.getElementById("other").onclick = ()=>join(G.host);
+}
+
+function renderLive(){
+  const G = N.game;
+  if(!G){ h(`${header()}<div class="curtain"><div class="big" style="font-size:30px">Loading<span class="typing"></span></div></div>`); return; }
+  const i = G.i, q = Q[G.deck[i]], fp = firstP(i), other = 1-N.me;
+  const mine = pickOf(N.me), theirs = pickOf(other);
+  const reveal = mine!==null && theirs!==null;
+  const pA = pickOf(fp), pB = pickOf(1-fp), match = reveal && pA===pB;
+  const key = G.g+":"+i;
+  if(reveal && match && N.hearted!==key){ N.hearted = key; hearts(14); }
+  let status = "";
+  if(!reveal){
+    if(mine===null) status = theirs!==null ? `<b>${esc(nameOf(other))}</b> has answered ✓ · your turn` : `Both pick now · <b>${esc(nameOf(other))}</b> is thinking<span class="typing"></span>`;
+    else status = `Locked in ✓ · waiting for <b>${esc(nameOf(other))}</b><span class="typing"></span>`;
+  }
+  h(`${header()}
+  <div class="card">
+    <span class="chip">${VIBES[q.c]||"Bonus"}</span>
+    <div class="q">${esc(fill(q.q, i))}</div>
+    <p class="hint">${esc(hint(q, i))}</p>
+  </div>
+  <div class="answers" id="ans">${q.a.map((t,k)=>{
+     const ca = reveal ? pA===k : mine===k && N.me===fp, cb = reveal ? pB===k : mine===k && N.me!==fp;
+     return `<button class="ans ${ca?"pick-a":""} ${cb?"pick-b":""}" data-k="${k}" ${mine!==null?'tabindex="-1"':""}>
+       <span class="k">${"ABCD"[k]}</span><span>${esc(fill(t, i))}</span>
+       ${(ca||cb)?`<span class="who">${ca?`<span class="dot a">${esc(reveal?nameOf(fp):"You")}</span>`:""}${cb?`<span class="dot b">${esc(reveal?nameOf(1-fp):"You")}</span>`:""}</span>`:""}
+     </button>`;}).join("")}</div>
+  ${reveal?`<div class="result ${match?"match":"miss"}"><div class="big">${match?"In sync! ♥":"Oops, not this time"}</div>
+     <p class="hint">${match? (q.t==="a"?`${esc(nameOf(1-fp))} knows ${esc(nameOf(fp))} well.`:"Same wavelength.") : (q.t==="a"?`${esc(nameOf(fp))}, tell ${esc(nameOf(1-fp))} why!`:"Talk it out. Who's right?")}</p></div>
+     <button class="btn" id="next">${i+1<G.deck.length?"Next question":"See our score"}</button>`
+   : `<div class="status">${status}</div>`}
+  <div class="foot"><button class="linkish" id="leave">Leave game</button></div>`);
+  if(mine===null){
+    document.getElementById("ans").onclick = e=>{
+      const b = e.target.closest(".ans"); if(!b) return;
+      N.picks[N.me] = {g:G.g, i, k:+b.dataset.k}; pub("pick/"+N.me, N.picks[N.me]); onLive();
+    };
+  }
+  if(reveal){
+    document.getElementById("next").onclick = ()=>{
+      const cur = N.game; if(cur.g!==G.g || cur.i!==i) return;
+      pubGame({...cur, i:i+1, matches:cur.matches+(match?1:0), done:cur.done+1}); window.scrollTo(0,0);
+    };
+  }
+  document.getElementById("leave").onclick = leaveLive;
+}
+
+function renderLiveEnd(){
+  const G = N.game, n = G.done, p = n ? Math.round(G.matches/n*100) : 0, [t,sub] = verdict(p);
+  h(`${header()}
+  <div class="card final">
+    <div class="eyebrow">${esc(S.a)} &amp; ${esc(S.b)} are</div>
+    <div class="meter">${p}%</div>
+    <div class="bar"><i style="width:${p}%"></i></div>
+    <h2 style="font-size:30px;color:var(--cherry)">${t}</h2>
+    <p class="hint" style="font-size:16px">${sub} ${G.matches} of ${n} answers matched.</p>
+    <div class="row" style="width:100%"><button class="btn" id="again">Play again</button><button class="btn ghost" id="leave">Leave</button></div>
+  </div>`);
+  if(N.hearted!==G.g+":end" && p>=45){ N.hearted = G.g+":end"; hearts(24); }
+  document.getElementById("again").onclick = ()=>{ S.vibes = G.vibes||S.vibes; S.rounds = G.rounds??S.rounds; pubGame(newGame(G.host)); };
+  document.getElementById("leave").onclick = leaveLive;
+}
+
+function boot(){
+  const room = new URLSearchParams(location.search).get("room");
+  if(room && /^[a-z0-9]{4,12}$/.test(room)){
+    let me = null; try{ const v = localStorage.getItem(roomKey(room)); if(v==="0"||v==="1") me = +v; }catch(e){}
+    connect(room, me);
+    S.screen = me===null ? "joinwait" : "live";
+  }
+  render();
+}
+boot();
 </script>
 
 </body>
