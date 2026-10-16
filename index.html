@@ -120,6 +120,24 @@ input[type=text]:focus{outline:none;border-color:var(--cherry)}
 @keyframes kblink{0%,92%,100%{transform:scaleY(1)}95%{transform:scaleY(.1)}}
 .kpic .tail{transform-box:fill-box;transform-origin:0% 100%;animation:kwag .6s ease-in-out infinite alternate}
 @keyframes kwag{from{transform:rotate(-10deg)}to{transform:rotate(12deg)}}
+.rate{display:flex;flex-direction:column;gap:18px}
+.slider{display:grid;grid-template-columns:1fr auto;align-items:center;gap:2px 12px}
+.slider label{margin:0}
+.slider output{font-family:var(--display);font-size:34px;line-height:1;color:var(--cherry);font-variant-numeric:tabular-nums;min-width:1.4em;text-align:right}
+.slider.guess output{color:var(--tang)}
+.slider input{grid-column:1/-1;width:100%;height:36px;margin:0;accent-color:var(--cherry);cursor:pointer}
+.slider.guess input{accent-color:var(--tang)}
+.rrow{margin-top:18px}
+.rhead{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;font-size:15px}
+.rpts{margin-left:auto;font-weight:800;font-size:13px;padding:3px 10px;border-radius:99px;background:var(--bg2);color:var(--muted);white-space:nowrap}
+.rpts.good{background:color-mix(in srgb,var(--good) 18%,transparent);color:var(--good)}
+.scale{position:relative;height:10px;margin:22px 16px 24px;border-radius:99px;background:linear-gradient(90deg,var(--bg2),color-mix(in srgb,var(--cherry) 30%,var(--bg2)))}
+.scale .tick{position:absolute;top:18px;transform:translateX(-50%);font-size:11px;font-weight:700;color:var(--muted)}
+.mk{position:absolute;top:50%;transform:translate(-50%,-50%);border-radius:50%;display:grid;place-items:center;font-style:normal;font-weight:800;font-size:13px}
+.mk.real{width:30px;height:30px;z-index:1}
+.mk.real.a{background:var(--cherry);color:var(--cherry-ink)} .mk.real.b{background:var(--tang);color:#2B1530}
+.mk.guess{width:40px;height:40px;background:var(--card);border:3px solid;box-sizing:border-box}
+.mk.guess.a{border-color:var(--cherry);color:var(--cherry)} .mk.guess.b{border-color:var(--tang);color:var(--ink)}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 </style>
 
@@ -236,7 +254,8 @@ const saved = store.get();
 let S = {
   screen:"intro", a:saved.a||"Gioia", b:saved.b||"Gerasimos",
   vibes: saved.vibes||["cute","funny","deep","spicy","pick","who"], rounds: saved.rounds||12,
-  deck:[], i:0, first:0, pickA:null, pickB:null, phase:"a", matches:0, history:[], extra:[]
+  deck:[], i:0, first:0, pickA:null, pickB:null, phase:"a", matches:0, history:[], extra:[],
+  mode: saved.mode||"quiz", pts:[0,0], rp:[null,null]
 };
 
 const app = document.getElementById("app");
@@ -263,8 +282,9 @@ function hint(q, i=S.i){
 function header(){
   const live = (S.screen==="live"||S.screen==="liveend") && N && N.game;
   let right;
-  if(live) right = `<b>${N.game.matches}</b> / ${N.game.done} in sync`;
-  else if(S.screen==="play"||S.screen==="end") right = `<b>${S.matches}</b> / ${S.history.length} in sync`;
+  const ptsTxt = p => `${esc(S.a)} <b>${p[0]}</b> · <b>${p[1]}</b> ${esc(S.b)}`;
+  if(live) right = N.game.mode==="rate" ? ptsTxt(N.game.pts||[0,0]) : `<b>${N.game.matches}</b> / ${N.game.done} in sync`;
+  else if(S.screen==="play"||S.screen==="end") right = S.mode==="rate" ? ptsTxt(S.pts) : `<b>${S.matches}</b> / ${S.history.length} in sync`;
   else right = `${esc(S.a)} &amp; ${esc(S.b)}`;
   let bar = "";
   if(S.screen==="play") bar = `<div class="progress" aria-hidden="true"><i style="width:${(S.i/S.deck.length*100).toFixed(1)}%"></i></div>`;
@@ -313,6 +333,7 @@ function renderSetup(){
       <div><label for="na">Player 1</label><input type="text" id="na" value="${esc(S.a)}" maxlength="18"></div>
       <div><label for="nb">Player 2</label><input type="text" id="nb" value="${esc(S.b)}" maxlength="18"></div>
     </div>
+    <div><label>Game</label><div class="vibes" id="mode">${[["quiz","Quiz · pick an answer"],["rate","Rate it 1–10"]].map(([k,v])=>`<button class="vibe" data-m="${k}" aria-pressed="${S.mode===k}">${v}</button>`).join("")}</div></div>
     <div><label>Vibes</label><div class="vibes" id="vibes">${Object.entries(VIBES).map(([k,v])=>`<button class="vibe" data-k="${k}" aria-pressed="${S.vibes.includes(k)}">${v}</button>`).join("")}</div></div>
     <div><label>Questions</label><div class="vibes" id="rounds">${[8,12,20,0].map(n=>`<button class="vibe" data-n="${n}" aria-pressed="${S.rounds===n}">${n||"All"}</button>`).join("")}</div></div>
     <div class="small" id="count"></div>
@@ -328,8 +349,12 @@ function renderSetup(){
     <button class="btn ghost" id="gen">Write new questions</button>
     <div class="small" id="aimsg" role="status"></div>
   </div>`);
-  const upd = ()=>{ document.getElementById("count").textContent = pool().length+" questions in these vibes"+(S.extra.length?` (incl. ${S.extra.length} new from Claude)`:""); };
+  const upd = ()=>{ document.getElementById("count").textContent = S.mode==="rate"
+      ? pool().length+" things to rate · rate yourself 1–10, guess your partner's number (exact = 3 pts, off by 1 = 2, off by 2 = 1)"
+      : pool().length+" questions in these vibes"+(S.extra.length?` (incl. ${S.extra.length} new from Claude)`:""); };
   upd();
+  document.getElementById("mode").onclick = e=>{const m=e.target.dataset.m;if(!m)return;S.mode=m;
+    document.querySelectorAll("#mode .vibe").forEach(b=>b.setAttribute("aria-pressed",b.dataset.m===S.mode)); upd(); };
   document.getElementById("vibes").onclick = e=>{const k=e.target.dataset.k;if(!k)return;
     S.vibes = S.vibes.includes(k)? S.vibes.filter(x=>x!==k) : [...S.vibes,k];
     if(!S.vibes.length) S.vibes=[k];
@@ -340,7 +365,7 @@ function renderSetup(){
     document.getElementById("start3").onclick = ()=>{
       S.a = document.getElementById("na").value.trim()||"Player 1";
       S.b = document.getElementById("nb").value.trim()||"Player 2";
-      store.set({a:S.a,b:S.b,vibes:S.vibes,rounds:S.rounds});
+      store.set({a:S.a,b:S.b,vibes:S.vibes,rounds:S.rounds,mode:S.mode});
       pubGame(newGame(N.game.host)); window.scrollTo(0,0);
     };
     document.getElementById("back").onclick = ()=>pubGame({...N.game, picking:null});
@@ -351,12 +376,20 @@ function renderSetup(){
   setupAI();
 }
 
-function pool(){ return [...S.extra, ...Q].filter(q=>S.vibes.includes(q.c)); }
+function pool(){
+  if(S.mode==="rate"){ const r = R.filter(q=>S.vibes.includes(q.c)); return r.length ? r : R; }
+  return [...S.extra, ...Q].filter(q=>S.vibes.includes(q.c));
+}
 
 function start(){
   S.a = document.getElementById("na").value.trim()||"Player 1";
   S.b = document.getElementById("nb").value.trim()||"Player 2";
-  store.set({a:S.a,b:S.b,vibes:S.vibes,rounds:S.rounds});
+  store.set({a:S.a,b:S.b,vibes:S.vibes,rounds:S.rounds,mode:S.mode});
+  if(S.mode==="rate"){
+    let deck = shuffle(pool()); if(S.rounds) deck = deck.slice(0,S.rounds);
+    S.deck = deck; S.i=0; S.pts=[0,0]; S.rp=[null,null]; S.history=[]; S.phase="first";
+    S.screen="play"; render(); return;
+  }
   const fresh = S.extra.filter(q=>S.vibes.includes(q.c));
   let deck = [...shuffle(fresh), ...shuffle(Q.filter(q=>S.vibes.includes(q.c)))];
   if(S.rounds) deck = deck.slice(0,S.rounds);
@@ -365,6 +398,7 @@ function start(){
 }
 
 function renderPlay(){
+  if(S.mode==="rate") return renderRatePlay();
   const q = cur(); const fp = firstP(); const picker = S.phase==="first"? fp : 1-fp;
   if(S.phase==="pass"){
     h(`${header()}<div class="curtain">
@@ -409,6 +443,159 @@ function renderPlay(){
       if(S.phase==="reveal") showKitty();
     };
   }
+}
+
+// ---------- Rate it 1–10 ----------
+// Each player rates themselves and guesses the partner's number; the guesser scores.
+const R = [
+ // cute
+ ...["How much do you love cuddling?","How romantic are you?","How much do you miss your partner when you're apart?",
+  "How much do you love surprises?","How much do you like holding hands in public?","How much do you love our kitty?",
+  "How cheesy are your love texts?","How much do you want a lazy day in bed?","How much do you love cats in general?",
+  "How much do you enjoy cooking together?","How much do you love good-morning texts?","How excited are you about our next trip?",
+  "How much do you love slow dancing?","How big is your sweet tooth?","How much do you like matching outfits?"].map(q=>({c:"cute",q})),
+ // funny
+ ...["How bad is your singing?","How hangry do you get?","How dramatic are you when you're sick?",
+  "How good are you at directions?","How messy is your side of the room?","How competitive are you at board games?",
+  "How scared are you of spiders?","How much do you love pineapple on pizza?","How addicted are you to your phone?",
+  "How good are your dance moves?","How much of a morning person are you?","How good are you at keeping secrets?",
+  "How spicy can you eat?","How likely are you to cry at a movie?","How funny do you think you are?"].map(q=>({c:"funny",q})),
+ // deep
+ ...["How happy are you lately?","How stressed are you this week?","How much do you want kids someday?",
+  "How important is money to you?","How much would you like to live abroad?","How close are you with your family?",
+  "How easily do you forgive?","How much do you enjoy time alone?","How ready are you to live together?",
+  "How confident do you feel lately?","How much do you plan the future?","How adventurous are you?",
+  "How much personal space do you need?","How good are you at saying sorry?","How much do you trust your gut?"].map(q=>({c:"deep",q})),
+ // spicy (mild)
+ ...["How flirty are you feeling today?","How good of a kisser are you?","How much do you love massages?",
+  "How much do you want a date night this week?","How much do you like being teased?","How bold are you with compliments?",
+  "How much do you love your partner's smile?","How much do you want a kiss right now?","How much do you love slow mornings together?",
+  "How much do you like romantic gestures in public?","How much do you want to dance together tonight?","How attractive is your partner right now?",
+  "How much do you love being the big spoon?","How shy are you about kissing in public?","How much do you love your partner's voice?"].map(q=>({c:"spicy",q}))
+];
+const rpts = d => d===0 ? 3 : d===1 ? 2 : d===2 ? 1 : 0;
+const rateGain = (picks, p) => rpts(Math.abs(picks[1-p].guess - picks[p].me)); // points earned by guessing p
+
+function rateInputHTML(q, otherName, lockLabel, v){
+  return `<div class="card">
+    <span class="chip">${VIBES[q.c]}</span>
+    <div class="q">${esc(q.q)}</div>
+    <p class="hint">Rate yourself, then guess ${esc(otherName)}'s number</p>
+  </div>
+  <div class="card rate">
+    <div class="slider"><label for="rs">You</label><output id="rso">${v.me}</output>
+      <input type="range" id="rs" min="1" max="10" step="1" value="${v.me}"></div>
+    <div class="slider guess"><label for="rg">Your guess for ${esc(otherName)}</label><output id="rgo">${v.guess}</output>
+      <input type="range" id="rg" min="1" max="10" step="1" value="${v.guess}"></div>
+    <button class="btn" id="lock">${esc(lockLabel)}</button>
+  </div>`;
+}
+function bindRateInput(v, onLock){
+  [["rs","me"],["rg","guess"]].forEach(([id,k])=>{
+    const r = document.getElementById(id), o = document.getElementById(id+"o");
+    r.oninput = ()=>{ o.textContent = r.value; v[k] = +r.value; };
+  });
+  document.getElementById("lock").onclick = ()=>onLock({me:v.me, guess:v.guess});
+}
+// picks[p] = {me, guess} for player p
+function rateRevealHTML(q, picks){
+  const pos = n => ((n-1)/9*100).toFixed(1)+"%";
+  const rows = [0,1].map(p=>{
+    const real = picks[p].me, g = picks[1-p].guess, d = Math.abs(g-real), pt = rpts(d);
+    return `<div class="rrow">
+      <div class="rhead"><span><b>${esc(nameOf(p))}</b> said <b>${real}</b> · ${esc(nameOf(1-p))} guessed <b>${g}</b></span>
+        <span class="rpts ${pt?"good":""}">${d===0?"Exact! +3":"+"+pt}</span></div>
+      <div class="scale"><span class="tick" style="left:0">1</span><span class="tick" style="left:100%">10</span>
+        <i class="mk guess ${p===0?"b":"a"}" style="left:${pos(g)}">${d?g:""}</i>
+        <i class="mk real ${p===0?"a":"b"}" style="left:${pos(real)}">${real}</i></div>
+    </div>`;
+  }).join("");
+  return `<div class="card"><span class="chip">${VIBES[q.c]}</span><div class="q">${esc(q.q)}</div>${rows}</div>`;
+}
+
+function renderRatePlay(){
+  const q = cur(), fp = firstP();
+  if(S.phase==="pass"){
+    h(`${header()}<div class="curtain">
+      <div class="eyebrow">No peeking</div>
+      <div class="big">Pass the phone to ${esc(nameOf(1-fp))}</div>
+      <p class="hint">${esc(nameOf(fp))} has locked in. Your turn.</p>
+      <button class="btn" id="ready">I'm ${esc(nameOf(1-fp))}, ready</button></div>`);
+    document.getElementById("ready").onclick = ()=>{ S.phase="second"; render(); };
+    return;
+  }
+  if(S.phase==="reveal"){
+    h(`${header()}${rateRevealHTML(q, S.rp)}${kittyHTML(S.auto, S.i+1<S.deck.length?"Next one coming…":"Your score is coming…")}`);
+    return;
+  }
+  const picker = S.phase==="first" ? fp : 1-fp, v = {me:5, guess:5};
+  h(`${header()}${rateInputHTML(q, nameOf(1-picker), "Lock in, "+nameOf(picker), v)}`);
+  bindRateInput(v, val=>{
+    S.rp[picker] = val;
+    if(S.phase==="first"){ S.phase = "pass"; render(); window.scrollTo(0,0); return; }
+    S.phase = "reveal";
+    const g0 = rateGain(S.rp,0), g1 = rateGain(S.rp,1);
+    S.pts[1] += g0; S.pts[0] += g1; S.history.push({q:q.q});
+    if(g0+g1>=4) hearts(14);
+    const i = S.i; S.auto = kittyStart();
+    setTimeout(()=>{
+      if(S.screen!=="play" || S.i!==i || S.phase!=="reveal") return;
+      S.i++; S.rp=[null,null]; S.phase="first";
+      if(S.i>=S.deck.length) S.screen="end"; render(); window.scrollTo(0,0);
+    }, BREAK_MS);
+    render(); window.scrollTo(0,0); showKitty();
+  });
+}
+
+function renderRateLive(){
+  const G = N.game, i = G.i, q = R[G.deck[i]], other = 1-N.me, key = G.g+":"+i;
+  const mine = pickOf(N.me), theirs = pickOf(other);
+  const foot = `<div class="foot"><button class="linkish" id="leave">Leave game</button></div>`;
+  if(mine!=null && theirs!=null){
+    const picks = [pickOf(0), pickOf(1)];
+    if(N.autoKey!==key){
+      N.autoKey = key; N.auto = kittyStart(); const g = G.g; showKitty();
+      if(rateGain(picks,0)+rateGain(picks,1)>=4) hearts(14);
+      setTimeout(()=>{ // both phones do this; the same next state is written twice, which is harmless
+        const cur = N && N.game; if(!cur || cur.g!==g || cur.i!==i) return;
+        const pts = [...(cur.pts||[0,0])]; pts[1] += rateGain(picks,0); pts[0] += rateGain(picks,1);
+        pubGame({...cur, i:i+1, pts, done:cur.done+1}); window.scrollTo(0,0);
+      }, BREAK_MS);
+    }
+    h(`${header()}${rateRevealHTML(q, picks)}${kittyHTML(N.auto, i+1<G.deck.length?"Next one coming…":"Your score is coming…")}${foot}`);
+  } else if(mine!=null){
+    h(`${header()}<div class="card"><span class="chip">${VIBES[q.c]}</span><div class="q">${esc(q.q)}</div>
+      <p class="hint">You: <b>${mine.me}</b> · your guess for ${esc(nameOf(other))}: <b>${mine.guess}</b></p></div>
+      <div class="status">Locked in ✓ · waiting for <b>${esc(nameOf(other))}</b><span class="typing"></span></div>${foot}`);
+  } else {
+    if(!N.draft || N.draft.key!==key) N.draft = {key, me:5, guess:5}; // keeps the sliders when the screen refreshes
+    h(`${header()}${rateInputHTML(q, nameOf(other), "Lock in", N.draft)}
+      <div class="status">${theirs!=null?`<b>${esc(nameOf(other))}</b> has locked in ✓ · your turn`:`<b>${esc(nameOf(other))}</b> is thinking<span class="typing"></span>`}</div>${foot}`);
+    bindRateInput(N.draft, val=>{ N.picks[N.me] = {g:G.g, i, k:val}; pub("pick/"+N.me, N.picks[N.me]); onLive(); });
+  }
+  document.getElementById("leave").onclick = leaveLive;
+}
+
+function renderRateEnd(pts, n, onAgain, onLeave){
+  const max = 3*n || 1, [pa,pb] = pts;
+  const win = pa===pb ? -1 : pa>pb ? 0 : 1;
+  const title = win<0 ? "Perfect tie ♥" : `${esc(nameOf(win))} wins!`;
+  const sub = win<0 ? "You read each other equally well." : `${esc(nameOf(win))} knows ${esc(nameOf(1-win))} a little better.`;
+  h(`${header()}
+  <div class="card final">
+    <div class="eyebrow">Rate it 1–10 · ${n} rounds</div>
+    <h2 style="font-size:34px;color:var(--cherry)">${title}</h2>
+    <p class="hint" style="font-size:16px">${sub}</p>
+    ${[0,1].map(p=>`<div style="width:100%;text-align:left">
+      <div class="rhead"><b>${esc(nameOf(p))}</b><span class="rpts good">${pts[p]} pts</span></div>
+      <div class="bar"><i style="width:${Math.round(pts[p]/max*100)}%"></i></div></div>`).join("")}
+    <div class="row" style="width:100%"><button class="btn" id="again">New game</button>${onLeave?`<button class="btn ghost" id="leave">Leave</button>`:""}</div>
+  </div>`);
+  const hk = n+":"+pa+":"+pb+":"+(N&&N.game?N.game.g:"");
+  if(renderRateEnd.hk!==hk && (win<0 || Math.max(pa,pb)/max>=.5)) hearts(24);
+  renderRateEnd.hk = hk;
+  document.getElementById("again").onclick = onAgain;
+  if(onLeave) document.getElementById("leave").onclick = onLeave;
 }
 
 // ---------- Kitty break between questions ----------
@@ -470,6 +657,7 @@ function verdict(p){
 }
 
 function renderEnd(){
+  if(S.mode==="rate") return renderRateEnd(S.pts, S.history.length, ()=>{ S.screen="setup"; render(); window.scrollTo(0,0); }, null);
   const n=S.history.length, p = n? Math.round(S.matches/n*100) : 0; const [t,sub]=verdict(p);
   h(`${header()}
   <div class="card final">
@@ -583,10 +771,12 @@ function renderLiveWait(){
 }
 
 function makeDeck(){
-  const idx = Q.map((q,i)=>i).filter(i=>S.vibes.includes(Q[i].c));
+  let idx;
+  if(S.mode==="rate"){ idx = R.map((q,i)=>i).filter(i=>S.vibes.includes(R[i].c)); if(!idx.length) idx = R.map((q,i)=>i); }
+  else idx = Q.map((q,i)=>i).filter(i=>S.vibes.includes(Q[i].c));
   let d = shuffle(idx); if(S.rounds) d = d.slice(0, S.rounds); return d;
 }
-function newGame(host){ return {g:rid(6), a:S.a, b:S.b, host, vibes:S.vibes, rounds:S.rounds, deck:makeDeck(), i:0, matches:0, done:0}; }
+function newGame(host){ return {g:rid(6), a:S.a, b:S.b, host, mode:S.mode, vibes:S.vibes, rounds:S.rounds, deck:makeDeck(), i:0, matches:0, done:0, pts:[0,0]}; }
 
 function hostLive(){
   S.a = document.getElementById("na").value.trim()||"Player 1";
@@ -677,6 +867,7 @@ function renderJoinHello(){
 function renderLive(){
   const G = N.game;
   if(!G){ h(`${header()}<div class="curtain"><div class="big" style="font-size:30px">Loading<span class="typing"></span></div></div>`); return; }
+  if(G.mode==="rate") return renderRateLive();
   const i = G.i, q = Q[G.deck[i]], fp = firstP(i), other = 1-N.me;
   const mine = pickOf(N.me), theirs = pickOf(other);
   const reveal = mine!==null && theirs!==null;
@@ -722,6 +913,8 @@ function renderLive(){
 }
 
 function renderLiveEnd(){
+  if(N.game.mode==="rate") return renderRateEnd(N.game.pts||[0,0], N.game.done,
+    ()=>{ S.vibes = N.game.vibes||S.vibes; S.rounds = N.game.rounds??S.rounds; S.mode = "rate"; pubGame({...N.game, picking:N.me}); window.scrollTo(0,0); }, leaveLive);
   const G = N.game, n = G.done, p = n ? Math.round(G.matches/n*100) : 0, [t,sub] = verdict(p);
   h(`${header()}
   <div class="card final">
@@ -733,7 +926,7 @@ function renderLiveEnd(){
     <div class="row" style="width:100%"><button class="btn" id="again">New game</button><button class="btn ghost" id="leave">Leave</button></div>
   </div>`);
   if(N.hearted!==G.g+":end" && p>=45){ N.hearted = G.g+":end"; hearts(24); }
-  document.getElementById("again").onclick = ()=>{ S.vibes = G.vibes||S.vibes; S.rounds = G.rounds??S.rounds; pubGame({...G, picking:N.me}); window.scrollTo(0,0); };
+  document.getElementById("again").onclick = ()=>{ S.vibes = G.vibes||S.vibes; S.rounds = G.rounds??S.rounds; S.mode = "quiz"; pubGame({...G, picking:N.me}); window.scrollTo(0,0); };
   document.getElementById("leave").onclick = leaveLive;
 }
 
