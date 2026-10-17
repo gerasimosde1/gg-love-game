@@ -7,7 +7,7 @@
 <style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}[hidden]{display:none!important}</style>
 </head>
 <body>
-<title>GG Love Game</title>
+<title>GG Couple Game</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bagel+Fat+One&family=Nunito:wght@500;700;800&display=swap">
@@ -138,6 +138,25 @@ input[type=text]:focus{outline:none;border-color:var(--cherry)}
 .mk.real.a{background:var(--cherry);color:var(--cherry-ink)} .mk.real.b{background:var(--tang);color:#2B1530}
 .mk.guess{width:40px;height:40px;background:var(--card);border:3px solid;box-sizing:border-box}
 .mk.guess.a{border-color:var(--cherry);color:var(--cherry)} .mk.guess.b{border-color:var(--tang);color:var(--ink)}
+.kscene{display:flex;align-items:center;justify-content:center;gap:4px;width:min(260px,80vw);height:120px;border-radius:28px;background:var(--bg2);border:3px solid var(--card);font-size:52px;line-height:1;overflow:hidden}
+.kscene.yes{background:radial-gradient(circle at 50% 55%,color-mix(in srgb,var(--cherry) 28%,var(--bg2)),var(--bg2) 70%)}
+.kc{display:inline-block}
+.km{display:inline-block;font-size:38px}
+.yes .kc.l{animation:kin-l 1.6s ease-in-out infinite alternate}
+.yes .kc.r{animation:kin-r 1.6s ease-in-out infinite alternate}
+.yes .km{animation:kbeat .8s ease-in-out infinite}
+@keyframes kin-l{from{transform:translateX(-18px) rotate(-6deg)}to{transform:translateX(6px) rotate(10deg)}}
+@keyframes kin-r{from{transform:translateX(18px) rotate(6deg) scaleX(-1)}to{transform:translateX(-6px) rotate(-10deg) scaleX(-1)}}
+@keyframes kbeat{0%,100%{transform:scale(1)}30%{transform:scale(1.35)}60%{transform:scale(.95)}}
+.no .kc.l{animation:kout-l 1.2s ease-in-out infinite alternate}
+.no .kc.r{animation:kout-r 1.2s ease-in-out infinite alternate}
+.no .km{animation:kshake .45s ease-in-out infinite}
+@keyframes kout-l{from{transform:translateX(0) scaleX(-1)}to{transform:translateX(-16px) scaleX(-1) rotate(-8deg)}}
+@keyframes kout-r{from{transform:translateX(0)}to{transform:translateX(16px) rotate(8deg)}}
+@keyframes kshake{0%,100%{transform:rotate(0)}25%{transform:rotate(-14deg)}75%{transform:rotate(14deg)}}
+.ksay{font-family:var(--display);font-size:22px;color:var(--cherry)}
+.kscene.no ~ .ksay{color:var(--miss)}
+.intro-cats{font-size:44px;animation:kbeat 1.4s ease-in-out infinite}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 </style>
 
@@ -252,7 +271,7 @@ const store = {get(){try{return JSON.parse(localStorage.getItem(LS))||{}}catch(e
 const saved = store.get();
 
 let S = {
-  screen:"intro", a:saved.a||"Gioia", b:saved.b||"Gerasimos",
+  screen:"intro", a:saved.a||"Player 1", b:saved.b||"Player 2",
   vibes: saved.vibes||["cute","funny","deep","spicy","pick","who"], rounds: saved.rounds||12,
   deck:[], i:0, first:0, pickA:null, pickB:null, phase:"a", matches:0, history:[], extra:[],
   mode: saved.mode||"quiz", pts:[0,0], rp:[null,null]
@@ -295,7 +314,7 @@ function header(){
     net = `<div class="net"><span class="ndot ${N.connected?(on?"on":""):"off"}"></span>${!N.connected?"Connecting…":on?`${esc(nameOf(other))} is here`:`Waiting for ${esc(nameOf(other))}`}
       <span style="margin-left:auto">You: <b>${esc(nameOf(N.me))}</b></span></div>`;
   }
-  return `<div class="logo"><div class="gg">GG<small>love game</small></div>
+  return `<div class="logo"><div class="gg">GG<small>couple game</small></div>
   <div class="score">${right}</div></div>${net}${bar}`;
 }
 
@@ -316,9 +335,10 @@ function render(){
 function renderIntro(){
   h(`${header()}
   <div class="curtain">
-    <div class="eyebrow">A little surprise for</div>
-    <div class="big">${esc(S.a)}</div>
-    <p style="font-size:18px;max-width:30ch;margin:0">${esc(S.b)} made you a game. Let's see how well you two really know each other.</p>
+    <div class="eyebrow">For two people in love</div>
+    <div class="big">GG couple game</div>
+    <p style="font-size:18px;max-width:30ch;margin:0">How well do you really know each other? Answer secretly, then see if you match.</p>
+    <div class="intro-cats" aria-hidden="true">😺💕😺</div>
     <button class="btn" id="go">Let's play ♥</button>
   </div>
   <div class="foot">How to play: pick an answer secretly, pass the phone, reveal. Same answer = a point.</div>`);
@@ -433,7 +453,7 @@ function renderPlay(){
       else { S.pickB=k; S.phase="reveal";
         const m = S.pickA===S.pickB; if(m){S.matches++; hearts(14);}
         S.history.push({q:fill(q.q),m});
-        const i = S.i; S.auto = kittyStart();
+        const i = S.i; S.auto = kittyStart(m);
         setTimeout(()=>{
           if(S.screen!=="play" || S.i!==i || S.phase!=="reveal") return;
           S.i++; S.pickA=S.pickB=null; S.phase="first";
@@ -450,7 +470,7 @@ function renderPlay(){
 const R = [
  // cute
  ...["How much do you love cuddling?","How romantic are you?","How much do you miss your partner when you're apart?",
-  "How much do you love surprises?","How much do you like holding hands in public?","How much do you love our kitty?",
+  "How much do you love surprises?","How much do you like holding hands in public?","How much do you love animals?",
   "How cheesy are your love texts?","How much do you want a lazy day in bed?","How much do you love cats in general?",
   "How much do you enjoy cooking together?","How much do you love good-morning texts?","How excited are you about our next trip?",
   "How much do you love slow dancing?","How big is your sweet tooth?","How much do you like matching outfits?"].map(q=>({c:"cute",q})),
@@ -537,7 +557,7 @@ function renderRatePlay(){
     const g0 = rateGain(S.rp,0), g1 = rateGain(S.rp,1);
     S.pts[1] += g0; S.pts[0] += g1; S.history.push({q:q.q});
     if(g0+g1>=4) hearts(14);
-    const i = S.i; S.auto = kittyStart();
+    const i = S.i; S.auto = kittyStart(g0+g1>=4);
     setTimeout(()=>{
       if(S.screen!=="play" || S.i!==i || S.phase!=="reveal") return;
       S.i++; S.rp=[null,null]; S.phase="first";
@@ -554,7 +574,7 @@ function renderRateLive(){
   if(mine!=null && theirs!=null){
     const picks = [pickOf(0), pickOf(1)];
     if(N.autoKey!==key){
-      N.autoKey = key; N.auto = kittyStart(); const g = G.g; showKitty();
+      N.autoKey = key; N.auto = kittyStart(rateGain(picks,0)+rateGain(picks,1)>=4); const g = G.g; showKitty();
       if(rateGain(picks,0)+rateGain(picks,1)>=4) hearts(14);
       setTimeout(()=>{ // both phones do this; the same next state is written twice, which is harmless
         const cur = N && N.game; if(!cur || cur.g!==g || cur.i!==i) return;
@@ -598,54 +618,32 @@ function renderRateEnd(pts, n, onAgain, onLeave){
   if(onLeave) document.getElementById("leave").onclick = onLeave;
 }
 
-// ---------- Kitty break between questions ----------
-// Your own kitty photos/GIFs go in the kitties/ folder, listed in kitties/list.json.
-// Until there are any, a drawn cartoon kitty is shown.
+// ---------- Cat break between questions ----------
+// A little cat-emoji couple: in love when you matched, grumpy when you didn't.
 const BREAK_MS = 6000;
-let KITS = [];
-fetch("kitties/list.json", {cache:"no-store"}).then(r=>r.ok?r.json():[]).then(a=>{
-  if(Array.isArray(a)) KITS = a.filter(x=>typeof x==="string" && /^[\w.-]+$/.test(x)).map(x=>"kitties/"+x);
-  KITS.forEach(src=>{ const im = new Image(); im.src = src; }); // preload
-}).catch(()=>{});
-const KANIMS = ["k-bounce","k-wiggle","k-pop","k-float","k-spin","k-jelly"];
-let lastKit = -1;
-function kittyStart(){
-  const n = KITS.length || CATS.length; let r;
-  do { r = Math.random()*n|0; } while(n>1 && r===lastKit);
-  lastKit = r;
-  return {t0:Date.now(), i:r, anim:KANIMS[Math.random()*KANIMS.length|0]};
+const CAT_YES = [["😻","💕","😻"],["😽","💋","😸"],["🐱","❤️","🐱"],["😸","💞","😺"],["🐈","💘","🐈‍⬛"],["😻","🌹","😽"]];
+const CAT_NO  = [["🙀","💢","😾"],["😿","💔","😼"],["😾","⚡","🙀"],["🐱","❓","🐈‍⬛"],["😼","🙄","😾"],["😹","🤷","🙀"]];
+const CAT_SAY = {yes:["Purr-fect match!","Meow-gical!","Two cats, one brain","Love at first meow"],
+                 no:["Hiss! Not this time","Cat-astrophe!","Paws for a talk","Agree to dis-a-purr"]};
+let lastCat = "";
+function kittyStart(match){
+  const set = match ? CAT_YES : CAT_NO; let r;
+  do { r = Math.random()*set.length|0; } while(set.length>1 && (match?"y":"n")+r===lastCat);
+  lastCat = (match?"y":"n")+r;
+  const say = CAT_SAY[match?"yes":"no"];
+  return {t0:Date.now(), match:!!match, cats:set[r], say:say[Math.random()*say.length|0]};
 }
 function showKitty(){
   setTimeout(()=>{ const el = document.querySelector(".kitty"); if(el) el.scrollIntoView({behavior:"smooth", block:"end"}); }, 700);
 }
 function kittyHTML(k, label){
   if(!k) return "";
-  const left = Math.max(0, BREAK_MS-(Date.now()-k.t0));
-  const media = KITS.length ? `<img src="${KITS[k.i%KITS.length]}" alt="Kitty">` : catSVG(k.i%CATS.length);
-  return `<div class="kitty"><div class="kpic ${k.anim}">${media}</div>
+  const left = Math.max(0, BREAK_MS-(Date.now()-k.t0)), [l,m,r] = k.cats;
+  return `<div class="kitty"><div class="kscene ${k.match?"yes":"no"}" role="img" aria-label="${k.match?"Cats in love":"Grumpy cats"}">
+      <span class="kc l">${l}</span><span class="km">${m}</span><span class="kc r">${r}</span></div>
+    <div class="ksay">${esc(k.say)}</div>
     <div class="kbar" aria-hidden="true"><i style="animation-duration:${BREAK_MS}ms;animation-delay:-${BREAK_MS-left}ms"></i></div>
     <div class="small">${label}</div></div>`;
-}
-// fur, darker fur, eyes
-const CATS = [["#F4A259","#D9772B","#3B2A1A"],["#A7ADB4","#7A8189","#2C5E3F"],["#2E2A2F","#151316","#9BD15B"],
-  ["#F3E3C3","#D8C095","#3D6FB0"],["#FFFFFF","#D9D4DC","#4A9DD8"],["#C9A27E","#8C6A4F","#2B1E14"]];
-function catSVG(n){
-  const [fur,dark,eye] = CATS[n];
-  return `<svg viewBox="0 0 200 200" role="img" aria-label="Cartoon kitty">
-    <path class="tail" d="M150 160 C190 150 190 100 170 85" fill="none" stroke="${dark}" stroke-width="14" stroke-linecap="round"/>
-    <ellipse cx="100" cy="158" rx="56" ry="38" fill="${fur}"/>
-    <ellipse cx="78" cy="190" rx="14" ry="8" fill="${dark}"/><ellipse cx="122" cy="190" rx="14" ry="8" fill="${dark}"/>
-    <polygon points="52,72 60,22 94,52" fill="${fur}"/><polygon points="148,72 140,22 106,52" fill="${fur}"/>
-    <polygon points="62,62 65,36 84,52" fill="#F7A8B8"/><polygon points="138,62 135,36 116,52" fill="#F7A8B8"/>
-    <circle cx="100" cy="92" r="52" fill="${fur}"/>
-    <path d="M86 46 Q100 58 114 46" fill="none" stroke="${dark}" stroke-width="5" stroke-linecap="round"/>
-    <g class="blink"><ellipse cx="80" cy="90" rx="8" ry="11" fill="${eye}"/><ellipse cx="120" cy="90" rx="8" ry="11" fill="${eye}"/>
-      <circle cx="83" cy="86" r="3" fill="#fff"/><circle cx="123" cy="86" r="3" fill="#fff"/></g>
-    <circle cx="66" cy="108" r="8" fill="#F7A8B8" opacity=".55"/><circle cx="134" cy="108" r="8" fill="#F7A8B8" opacity=".55"/>
-    <polygon points="94,104 106,104 100,111" fill="#E8798F"/>
-    <path d="M100 111 Q100 119 92 119 M100 111 Q100 119 108 119" fill="none" stroke="#3B2A30" stroke-width="2.5" stroke-linecap="round"/>
-    <path d="M56 104 L30 98 M56 112 L30 114 M144 104 L170 98 M144 112 L170 114" stroke="${dark}" stroke-width="2.5" stroke-linecap="round"/>
-  </svg>`;
 }
 
 function verdict(p){
@@ -830,7 +828,7 @@ function renderLobby(){
     catch(err){ const r = document.createRange(); r.selectNodeContents(document.getElementById("lk")); const s = getSelection(); s.removeAllRanges(); s.addRange(r); }
   };
   const sh = document.getElementById("share");
-  if(sh) sh.onclick = ()=>navigator.share({title:"GG love game", text:"Play with me ♥", url:link}).catch(()=>{});
+  if(sh) sh.onclick = ()=>navigator.share({title:"GG couple game", text:"Play with me ♥", url:link}).catch(()=>{});
   document.querySelector(".seg").onclick = e=>{ const p = e.target.dataset.p; if(p===undefined || +p===N.me) return; setMe(+p); render(); };
   document.getElementById("go").onclick = ()=>{ S.screen = "live"; onLive(); };
   document.getElementById("leave").onclick = leaveLive;
@@ -839,7 +837,7 @@ function renderLobby(){
 function renderJoinWait(){
   const slow = N && (N.failed || Date.now()-N.t0 > 20000);
   h(`${header()}<div class="curtain">
-    <div class="eyebrow">GG love game</div>
+    <div class="eyebrow">GG couple game</div>
     <div class="big" style="font-size:34px">${slow?"Can't find this game":"Joining<span class=\"typing\"></span>"}</div>
     <p class="hint">${slow?"Check the internet connection, or ask for a new QR code.":"Connecting to your partner's phone."}</p>
     ${slow?`<button class="btn" id="retry">Try again</button><button class="linkish" id="solo">Play on one phone instead</button>`:""}
@@ -853,9 +851,10 @@ function renderJoinWait(){
 function renderJoinHello(){
   const G = N.game, me = 1-G.host;
   h(`${header()}<div class="curtain">
-    <div class="eyebrow">A little surprise for</div>
-    <div class="big">${esc(nameOf(me))}</div>
-    <p style="font-size:18px;max-width:30ch;margin:0">${esc(nameOf(G.host))} made you a game. Answer on your phone, and see if you two match.</p>
+    <div class="eyebrow">GG couple game</div>
+    <div class="big">${esc(nameOf(G.host))} invited you to play</div>
+    <p style="font-size:18px;max-width:30ch;margin:0">Answer on your phone, and see if you two match.</p>
+    <div class="intro-cats" aria-hidden="true">😺💕😺</div>
     <button class="btn" id="go">Let's play ♥</button>
     <button class="linkish" id="other">I'm ${esc(nameOf(G.host))}</button>
   </div>`);
@@ -875,7 +874,7 @@ function renderLive(){
   const key = G.g+":"+i;
   if(reveal && match && N.hearted!==key){ N.hearted = key; hearts(14); }
   if(reveal && N.autoKey!==key){
-    N.autoKey = key; N.auto = kittyStart(); const g = G.g; showKitty();
+    N.autoKey = key; N.auto = kittyStart(match); const g = G.g; showKitty();
     setTimeout(()=>{ // both phones do this; the same next state is written twice, which is harmless
       const cur = N && N.game; if(!cur || cur.g!==g || cur.i!==i) return;
       pubGame({...cur, i:i+1, matches:cur.matches+(match?1:0), done:cur.done+1}); window.scrollTo(0,0);
